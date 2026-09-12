@@ -16,6 +16,7 @@ import Avatar from '@/components/Avatar';
 import { fullUrl, type DriveMedia } from '@/lib/drive';
 import { formatBytes, formatDate, formatDuration, formatUploader } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { isHevcLike, normalizedMediaMime } from '@/lib/media-format';
 
 function DetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +26,7 @@ function DetailInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   // Bei Direktaufruf/Reload: Liste ggf. nachladen
   useEffect(() => {
@@ -43,6 +45,7 @@ function DetailInner() {
     setBlobUrl(null);
     setLoadError(null);
     setConfirmDelete(false);
+    setVideoError(false);
     if (!item) return;
     let cancelled = false;
     fullUrl(item)
@@ -127,12 +130,25 @@ function DetailInner() {
         >
           {blobUrl && item ? (
             item.type === 'video' ? (
-              <video
-                src={blobUrl}
-                controls
-                playsInline
-                className="max-h-[80vh] w-full object-contain"
-              />
+              <div className="flex w-full flex-col items-center justify-center gap-3">
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[80vh] w-full object-contain"
+                  onError={() => setVideoError(true)}
+                >
+                  <source src={blobUrl} type={normalizedMediaMime(item.name, item.mimeType)} />
+                  Twoja przeglądarka nie obsługuje tego formatu wideo.
+                </video>
+                {videoError && (
+                  <div className="mx-4 mb-4 max-w-xl rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-xs text-amber-100">
+                    {isHevcLike(item.name, item.mimeType)
+                      ? 'To nagranie HEVC/H.265 nie jest dekodowane przez tę przeglądarkę lub urządzenie. Na iPhone/iPad/Safari HEVC działa natywnie; na części Androidów i komputerów zależy od sprzętu/kodeka systemowego. Możesz pobrać oryginalny plik poniżej.'
+                      : 'Ta przeglądarka nie potrafi odtworzyć tego pliku. Możesz pobrać oryginalny plik poniżej.'}
+                  </div>
+                )}
+              </div>
             ) : (
               <img src={blobUrl} alt={item.name} className="max-h-[80vh] w-full object-contain" />
             )

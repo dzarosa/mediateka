@@ -18,6 +18,7 @@ import { uploadToDrive, DriveError } from '@/lib/drive';
 import { formatBytes } from '@/lib/format';
 import { getConfig } from '@/config';
 import { cn } from '@/lib/utils';
+import { isImageLike, isVideoLike, normalizedMediaMime } from '@/lib/media-format';
 
 const MAX_SIZE = getConfig().maxUploadBytes;
 
@@ -62,7 +63,7 @@ function UploadInner() {
       }
       const accepted: QueueItem[] = [];
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        if (!isImageLike(file.name, file.type) && !isVideoLike(file.name, file.type)) {
           toast(`Pominięto ${file.name} — tylko zdjęcia i filmy.`, 'error');
           continue;
         }
@@ -74,7 +75,7 @@ function UploadInner() {
           id: ++itemId,
           file,
           preview: URL.createObjectURL(file),
-          isVideo: file.type.startsWith('video/'),
+          isVideo: isVideoLike(file.name, file.type),
           status: 'queued',
           progress: 0,
         });
@@ -207,7 +208,7 @@ function UploadInner() {
               <div>
                 <p className="font-semibold">Wybierz zdjęcia i filmy</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  JPG · PNG · HEIC · MP4 · MOV — wiele plików naraz, do {Math.round(MAX_SIZE / 1024 ** 3)} GB / plik
+                  JPG · PNG · HEIC · MP4 · MOV · HEVC/H.265 — wiele plików naraz, do {Math.round(MAX_SIZE / 1024 ** 3)} GB / plik
                 </p>
               </div>
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
@@ -235,7 +236,7 @@ function UploadInner() {
             <input
               ref={galleryInput}
               type="file"
-              accept="image/*,video/*"
+              accept="image/*,video/*,.mov,.mp4,.m4v,.hevc,.h265"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -246,7 +247,7 @@ function UploadInner() {
             <input
               ref={cameraInput}
               type="file"
-              accept="image/*,video/*"
+              accept="image/*,video/*,.mov,.mp4,.m4v,.hevc,.h265"
               capture="environment"
               className="hidden"
               onChange={(e) => {
@@ -277,7 +278,9 @@ function UploadInner() {
                         )}
                       >
                         {item.isVideo ? (
-                          <video src={item.preview} className="h-full w-full object-cover" muted />
+                          <video className="h-full w-full object-cover" muted playsInline preload="metadata">
+                            <source src={item.preview} type={normalizedMediaMime(item.file.name, item.file.type)} />
+                          </video>
                         ) : (
                           <img src={item.preview} alt="" className="h-full w-full object-cover" />
                         )}

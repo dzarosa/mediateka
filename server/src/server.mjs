@@ -63,6 +63,27 @@ function fromB64url(input) {
   return Buffer.from(input, 'base64url').toString('utf8');
 }
 
+
+function mediaExt(name = '') {
+  const value = String(name || '').toLowerCase();
+  const index = value.lastIndexOf('.');
+  return index >= 0 ? value.slice(index) : '';
+}
+
+const MEDIA_MIME_BY_EXT = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif', '.avif': 'image/avif',
+  '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.qt': 'video/quicktime',
+  '.hevc': 'video/hevc', '.h265': 'video/hevc', '.webm': 'video/webm', '.mkv': 'video/x-matroska',
+  '.3gp': 'video/3gpp', '.3g2': 'video/3gpp2',
+};
+
+function normalizedMediaMime(name, reported = '') {
+  const clean = String(reported || '').trim().toLowerCase();
+  if (clean.startsWith('image/') || clean.startsWith('video/')) return clean;
+  return MEDIA_MIME_BY_EXT[mediaExt(name)] || clean || 'application/octet-stream';
+}
+
 function hmac(value, secret) {
   return crypto.createHmac('sha256', secret).update(value).digest('base64url');
 }
@@ -341,13 +362,14 @@ async function listMedia(req) {
       throw Object.assign(new Error('drive_list_failed'), { status: 502 });
     }
     for (const f of data.files || []) {
-      const isImage = String(f.mimeType || '').startsWith('image/');
-      const isVideo = String(f.mimeType || '').startsWith('video/');
+      const effectiveMime = normalizedMediaMime(f.name, f.mimeType);
+      const isImage = effectiveMime.startsWith('image/');
+      const isVideo = effectiveMime.startsWith('video/');
       if (!isImage && !isVideo) continue;
       out.push({
         id: f.id,
         name: f.name,
-        mimeType: f.mimeType,
+        mimeType: effectiveMime,
         type: isVideo ? 'video' : 'photo',
         thumbnailLink: signedMediaUrl(req, f.id, 'thumb'),
         webContentLink: signedMediaUrl(req, f.id, 'content'),
@@ -389,13 +411,14 @@ async function assertInGallery(id) {
   return meta;
 }
 
-async function proxyResponse(upstream, res, { filename, download = false, streaming = false } = {}) {
+async function proxyResponse(upstream, res, { filename, download = false, streaming = false, contentType } = {}) {
   const headers = {};
   for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
     if (streaming && name === 'content-length') continue;
     const value = upstream.headers.get(name);
     if (value) headers[name] = value;
   }
+  if (contentType) headers['content-type'] = contentType;
   headers['Cache-Control'] = 'private, max-age=900';
   if (filename) {
     const encoded = encodeURIComponent(filename).replace(/'/g, '%27');
@@ -433,7 +456,7 @@ async function handleMediaProxy(req, res, id, variant, url) {
         return;
       }
     }
-    if (String(meta.mimeType || '').startsWith('image/')) {
+    if (normalizedMediaMime(meta.name, meta.mimeType).startsWith('image/')) {
       const image = await googleFetch(`${DRIVE_API}/files/${encodeURIComponent(id)}?alt=media`, {
         headers: { Accept: 'image/*' },
       });
@@ -450,7 +473,7 @@ async function handleMediaProxy(req, res, id, variant, url) {
   if (req.method === 'HEAD') {
     const encoded = encodeURIComponent(meta.name).replace(/'/g, '%27');
     const headHeaders = {
-      'Content-Type': meta.mimeType || 'application/octet-stream',
+      'Content-Type': normalizedMediaMime(meta.name, meta.mimeType),
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'private, max-age=900',
       'Content-Disposition': `${signature.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encoded}`,
@@ -475,7 +498,7 @@ async function handleMediaProxy(req, res, id, variant, url) {
   }
   // Bez Content-Length Node używa Transfer-Encoding: chunked. To pozwala Cloud Run
   // streamować odpowiedzi większe niż 32 MiB zamiast buforować cały film.
-  await proxyResponse(upstream, res, { filename: meta.name, download: signature.download, streaming: true });
+  await proxyResponse(upstream, res, { filename: meta.name, download: signature.download, streaming: true, contentType: normalizedMediaMime(meta.name, meta.mimeType) });
 }
 
 async function handleLogin(req, res) {
@@ -501,7 +524,7 @@ async function handleLogin(req, res) {
 async function handleUploadSession(req, res, user) {
   const body = await readJson(req);
   const name = String(body.name || '').trim();
-  const mimeType = String(body.mimeType || 'application/octet-stream').trim();
+  const mimeType = normalizedMediaMime(name, body.mimeType);
   const size = Number(body.size || 0);
   if (!name || !Number.isFinite(size) || size <= 0) {
     json(res, 400, { error: 'invalid_file', message: 'Brak nazwy lub rozmiaru pliku.' });

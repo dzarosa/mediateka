@@ -9,6 +9,7 @@
 import { getConfig, isDemoMode } from '@/config';
 import { apiFetch, ApiError } from '@/lib/api';
 import { USERS } from '@/lib/gate';
+import { normalizedMediaMime } from '@/lib/media-format';
 
 export type MediaType = 'photo' | 'video';
 
@@ -180,7 +181,7 @@ export async function uploadToDrive(
     session = await apiFetch<UploadSession>('/api/uploads/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size, uploader: uploaderName }),
+      body: JSON.stringify({ name: file.name, mimeType: normalizedMediaMime(file.name, file.type), size: file.size, uploader: uploaderName }),
     });
   } catch (err) {
     throw wrapApiError(err, 'Nie udało się rozpocząć wysyłania pliku.');
@@ -207,7 +208,7 @@ export async function uploadToDrive(
           start,
           end,
           file.size,
-          file.type,
+          normalizedMediaMime(file.name, file.type),
           (loaded) => onProgress(Math.min(0.999, (start + loaded) / file.size)),
         );
         lastResponse = result;
