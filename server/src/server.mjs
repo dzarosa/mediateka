@@ -8,7 +8,7 @@ const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_FOLDER_NAME = process.env.DRIVE_FOLDER_NAME || 'Korea_Japonia_2026';
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 20 * 1024 ** 3);
-const SESSION_HOURS = Math.max(1, Number(process.env.SESSION_HOURS || 24));
+const SESSION_HOURS = Math.max(1, Number(process.env.SESSION_HOURS || 720));
 const MEDIA_URL_HOURS = Math.max(1, Number(process.env.MEDIA_URL_HOURS || 24));
 
 const USERS = [
@@ -31,6 +31,7 @@ const requiredEnv = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_REFRESH_TOKEN',
+  'GOOGLE_OWNER_EMAIL',
 ];
 
 const missingEnv = requiredEnv.filter((key) => !process.env[key]);
@@ -46,6 +47,7 @@ const allowedOrigins = new Set(
 );
 
 let accessTokenCache = null;
+let googleOwnerVerified = false;
 let folderIdCache = process.env.DRIVE_FOLDER_ID?.trim() || null;
 const loginAttempts = new Map();
 
@@ -228,6 +230,25 @@ async function getGoogleAccessToken() {
     console.error('Google token refresh failed:', response.status, data);
     throw Object.assign(new Error('google_auth_failed'), { status: 502 });
   }
+  const expectedOwner = String(process.env.GOOGLE_OWNER_EMAIL || '').trim().toLowerCase();
+  if (expectedOwner && !googleOwnerVerified) {
+    const aboutResponse = await fetch(`${DRIVE_API}/about?fields=${encodeURIComponent('user(emailAddress,displayName)')}`, {
+      headers: { Authorization: `Bearer ${data.access_token}` },
+    });
+    const about = await aboutResponse.json().catch(() => ({}));
+    const actualOwner = String(about?.user?.emailAddress || '').trim().toLowerCase();
+    if (!aboutResponse.ok || !actualOwner) {
+      console.error('Google owner verification failed:', aboutResponse.status, about);
+      throw Object.assign(new Error('google_owner_check_failed'), { status: 502 });
+    }
+    if (actualOwner !== expectedOwner) {
+      console.error(`Wrong Google account: expected ${expectedOwner}, got ${actualOwner}`);
+      throw Object.assign(new Error('google_owner_mismatch'), { status: 502 });
+    }
+    googleOwnerVerified = true;
+    console.log(`Google Drive połączony jako ${actualOwner}`);
+  }
+
   accessTokenCache = {
     token: data.access_token,
     expiresAt: Date.now() + Math.max(60, Number(data.expires_in || 3600)) * 1000,
@@ -566,7 +587,10 @@ const server = http.createServer(async (req, res) => {
       json(res, 200, {
         ok: missingEnv.length === 0,
         folderName: DRIVE_FOLDER_NAME,
+        googleOwnerEmail: process.env.GOOGLE_OWNER_EMAIL || null,
+        googleOwnerVerified,
         maxUploadBytes: MAX_UPLOAD_BYTES,
+        sessionHours: SESSION_HOURS,
         missingEnv,
       });
       return;

@@ -2,7 +2,8 @@
 // Konta Mediateki
 // ----------------------------------------------------------------------------
 // Hasła NIE znajdują się już w frontendzie. Są sprawdzane przez backend.
-// sessionStorage przechowuje tylko krótkotrwały token sesji zwrócony przez API.
+// localStorage przechowuje token sesji zwrócony przez API, aby użytkownik
+// nie musiał logować się ponownie po zamknięciu przeglądarki.
 // ============================================================================
 
 export interface GateUser {
@@ -32,7 +33,7 @@ const SESSION_KEY = 'mediateka.backend-session';
 
 export function getSession(): GateSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GateSession;
     if (!parsed?.token || !parsed?.user?.username) return null;
@@ -45,10 +46,12 @@ export function getSession(): GateSession | null {
 }
 
 export function saveSession(session: GateSession): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function clearSession(): void {
+  localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
 }
 

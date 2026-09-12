@@ -1,10 +1,10 @@
-# Mediateka 2026 — konfiguracja bez logowania Google dla uczestników
+# Mediateka 2026 — jedno wspólne konto Google w tle
 
 Ta wersja działa w układzie:
 
 **login Mediateki → galeria → automatyczny zapis na Google Drive**
 
-Uczestnicy **nie logują się do Google**. Nie trzeba dodawać Kasi, Ani, Staszka itd. jako Google „Test users”. Google OAuth wykonuje tylko właściciel galerii **jednorazowo podczas konfiguracji backendu**.
+Uczestnicy **nie logują się do Google**. Nie trzeba dodawać Kasi, Ani, Staszka itd. jako Google „Test users”. Google OAuth wykonujesz **raz** dla konta `reisekoreajapan2026@gmail.com`. Potem uczestnicy korzystają z Drive przez backend i nie widzą logowania Google.
 
 > Ważne: frontend jest nadal na GitHub Pages, ale sekrety i prawdziwa kontrola hasła są w `server/`, który trzeba wdrożyć np. do Google Cloud Run.
 
@@ -35,9 +35,10 @@ Utwórz albo użyj projektu Google Cloud.
 
 1. **APIs & Services → Library → Google Drive API → Enable**.
 2. Skonfiguruj **Google Auth Platform / OAuth consent screen**.
-3. Dla stabilnego refresh tokenu ustaw publikację aplikacji na **In production / Produkcja**.
-4. Utwórz OAuth Client typu **Web application**, np. `Mediateka Backend`.
-5. Dodaj **Authorized redirect URI**:
+3. Dodaj `reisekoreajapan2026@gmail.com` jako **Test user** na czas konfiguracji.
+4. **Ważne:** jeśli aplikacja pozostanie w statusie `Testing`, refresh token Google może wygasnąć po 7 dniach. Jeżeli chcesz naprawdę połączyć konto tylko raz, po uruchomieniu ustaw aplikację na **In production / Produkcja** i wygeneruj refresh token jeszcze raz.
+5. Utwórz OAuth Client typu **Web application**, np. `Mediateka Backend`.
+6. Dodaj **Authorized redirect URI**:
 
 ```text
 http://localhost:53682/oauth2callback
@@ -66,10 +67,11 @@ Na swoim komputerze otwórz PowerShell w katalogu projektu:
 cd server
 $env:GOOGLE_CLIENT_ID="TU_CLIENT_ID.apps.googleusercontent.com"
 $env:GOOGLE_CLIENT_SECRET="TU_CLIENT_SECRET"
+$env:GOOGLE_OWNER_EMAIL="reisekoreajapan2026@gmail.com"
 npm run auth:google
 ```
 
-Skrypt wypisze link. Otwórz go w przeglądarce i zaloguj się **kontem Google właściciela galerii**.
+Skrypt wypisze link z `login_hint` ustawionym na **reisekoreajapan2026@gmail.com**. Zaloguj się dokładnie tym kontem. Skrypt dodatkowo sprawdzi adres konta i przerwie konfigurację, jeśli użyjesz innego.
 
 Po zgodzie skrypt:
 
@@ -93,13 +95,14 @@ GROUP_PASSWORD=NOWE_HASLO_DLA_GRUPY
 ADMIN_PASSWORD=NOWE_HASLO_ADMINA
 AUTH_SECRET=DLUGI_LOSOWY_SEKRET_1
 MEDIA_SIGNING_SECRET=DLUGI_LOSOWY_SEKRET_2
+GOOGLE_OWNER_EMAIL=reisekoreajapan2026@gmail.com
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REFRESH_TOKEN=...
 DRIVE_FOLDER_ID=...
 DRIVE_FOLDER_NAME=Korea_Japonia_2026
 MAX_UPLOAD_BYTES=21474836480
-SESSION_HOURS=24
+SESSION_HOURS=720
 MEDIA_URL_HOURS=24
 ```
 
@@ -205,7 +208,7 @@ Na stronie pozostają te same nazwy użytkowników:
 
 Dla wszystkich poza Adminem backend sprawdza `GROUP_PASSWORD`. Admin używa `ADMIN_PASSWORD`.
 
-Po poprawnym logowaniu użytkownik przechodzi **od razu do galerii**. Nie ma drugiego ekranu Google.
+Po poprawnym logowaniu użytkownik przechodzi **od razu do galerii**. Nie ma drugiego ekranu Google. Token Mediateki jest zapisany w `localStorage`, dlatego po zamknięciu i ponownym otwarciu przeglądarki użytkownik pozostaje zalogowany do końca sesji backendu (domyślnie 30 dni).
 
 ---
 
@@ -239,7 +242,7 @@ Dla filmów endpoint obsługuje nagłówek `Range`, więc przeglądarka może pr
 | `health` pokazuje `ok:false` | W Cloud Run brakuje którejś wymaganej zmiennej środowiskowej. |
 | Login zwraca 403 / CORS | `ALLOWED_ORIGINS` musi być dokładnie originem GitHub Pages, np. `https://user.github.io`. |
 | Login działa, ale Drive zwraca błąd | Sprawdź `GOOGLE_REFRESH_TOKEN`, `DRIVE_FOLDER_ID` oraz czy Drive API jest włączone. |
-| Refresh token przestaje działać po kilku dniach | Ustaw OAuth app na **In production / Produkcja** i wygeneruj refresh token ponownie. |
+| Refresh token przestaje działać po ok. 7 dniach | To typowe dla aplikacji OAuth w statusie **Testing**. Ustaw **In production / Produkcja** i wygeneruj refresh token ponownie kontem `reisekoreajapan2026@gmail.com`. |
 | Film nie ma jeszcze miniatury | Google może przez chwilę przetwarzać film; strona pokaże tymczasową planszę. |
 | Repo było wcześniej publiczne | Zmień stare hasła grupowe i admina — wcześniej były zapisane w frontendzie. |
 
@@ -251,7 +254,7 @@ Dla filmów endpoint obsługuje nagłówek `Range`, więc przeglądarka może pr
 - **Cloud Run:** hasła, sesje, Google OAuth refresh token, podpisy URL-i.
 - **Google Drive:** prywatne oryginalne zdjęcia i filmy.
 
-Uczestnik nie musi znać ani posiadać konta Google użytego przez backend.
+Uczestnik nie musi logować się do Google. Backend używa wyłącznie konta `reisekoreajapan2026@gmail.com`.
 
 ## Jeśli repozytorium zawiera pliki ze starej wersji OAuth
 

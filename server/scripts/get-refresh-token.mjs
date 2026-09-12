@@ -3,6 +3,7 @@ import http from 'node:http';
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME || 'Korea_Japonia_2026';
+const OWNER_EMAIL = process.env.GOOGLE_OWNER_EMAIL || 'reisekoreajapan2026@gmail.com';
 const PORT = Number(process.env.OAUTH_LOCAL_PORT || 53682);
 const REDIRECT_URI = `http://localhost:${PORT}/oauth2callback`;
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -25,13 +26,15 @@ authUrl.search = new URLSearchParams({
   scope: SCOPE,
   access_type: 'offline',
   prompt: 'consent',
+  login_hint: OWNER_EMAIL,
+  include_granted_scopes: 'true',
   state,
 }).toString();
 
 console.log('\n=== Mediateka: jednorazowe połączenie właściciela z Google Drive ===\n');
 console.log('1. W Google Cloud dodaj Authorized redirect URI:');
 console.log(`   ${REDIRECT_URI}\n`);
-console.log('2. Otwórz ten adres w przeglądarce i zaloguj się TYLKO kontem właściciela Drive:\n');
+console.log(`2. Otwórz ten adres i zaloguj się kontem: ${OWNER_EMAIL}\n`);
 console.log(authUrl.toString());
 console.log('\nCzekam na powrót z Google…\n');
 
@@ -71,17 +74,24 @@ const server = http.createServer(async (req, res) => {
       throw new Error('Google nie zwrócił refresh_token. Cofnij dostęp aplikacji na myaccount.google.com/permissions i uruchom skrypt ponownie.');
     }
 
+    const owner = await getOwner(token.access_token);
+    if (owner.email.toLowerCase() !== OWNER_EMAIL.toLowerCase()) {
+      throw new Error(`Połączono niewłaściwe konto Google: ${owner.email}. Oczekiwano: ${OWNER_EMAIL}.`);
+    }
+
     const folderId = await ensureFolder(token.access_token);
 
     console.log('\n=== GOTOWE ===\n');
+    console.log(`Konto Google: ${owner.email}`);
     console.log('Skopiuj te wartości do sekretów backendu / Cloud Run:');
+    console.log(`GOOGLE_OWNER_EMAIL=${OWNER_EMAIL}`);
     console.log(`GOOGLE_REFRESH_TOKEN=${token.refresh_token}`);
     console.log(`DRIVE_FOLDER_ID=${folderId}`);
     console.log(`DRIVE_FOLDER_NAME=${FOLDER_NAME}`);
     console.log('\nRefresh token traktuj jak hasło — nie commituj go do GitHub.\n');
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;background:#0b0b12;color:#fff;padding:40px"><h1>Mediateka połączona z Google Drive ✅</h1><p>Folder został przygotowany. Wróć do okna terminala — tam są wartości do Cloud Run.</p><p>To okno możesz zamknąć.</p></body>');
+    res.end(`<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;background:#0b0b12;color:#fff;padding:40px"><h1>Mediateka połączona z Google Drive ✅</h1><p>Konto: <b>${OWNER_EMAIL}</b></p><p>Folder został przygotowany. Wróć do okna terminala — tam są wartości do Cloud Run.</p><p>To okno możesz zamknąć.</p></body>`);
     setTimeout(() => server.close(() => process.exit(0)), 500);
   } catch (e) {
     console.error('\nBłąd:', e?.message || e);
@@ -95,6 +105,15 @@ setTimeout(() => {
   console.error('\nLimit czasu minął. Uruchom skrypt ponownie.');
   server.close(() => process.exit(1));
 }, 10 * 60 * 1000).unref();
+
+async function getOwner(accessToken) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = await res.json();
+  if (!res.ok || !data?.user?.emailAddress) throw new Error(`Drive about: ${JSON.stringify(data)}`);
+  return { email: data.user.emailAddress, displayName: data.user.displayName || '' };
+}
 
 async function ensureFolder(accessToken) {
   const q = encodeURIComponent(`name='${escapeQuery(FOLDER_NAME)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);

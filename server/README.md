@@ -21,6 +21,7 @@ GET http://localhost:8080/health
 ```powershell
 $env:GOOGLE_CLIENT_ID="..."
 $env:GOOGLE_CLIENT_SECRET="..."
+$env:GOOGLE_OWNER_EMAIL="reisekoreajapan2026@gmail.com"
 npm run auth:google
 ```
 

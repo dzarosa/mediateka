@@ -29,8 +29,6 @@ jobs:
         run: npm config set registry https://registry.npmjs.org/
       - name: Install dependencies
         run: npm ci --registry=https://registry.npmjs.org/ --fetch-retries=5 --fetch-retry-maxtimeout=120000
-      - name: Remove legacy browser Google OAuth files
-        run: rm -f src/components/RequireGoogle.tsx src/lib/google.ts
       - name: Build
         run: npm run build
       - uses: actions/configure-pages@v5

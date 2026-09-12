@@ -168,7 +168,7 @@ export default function Login() {
             Hasło grupowe dostaniecie na czacie wyjazdu ✈️
           </p>
           <p className="mt-2 text-center text-[11px] leading-relaxed text-muted-foreground/70">
-            Nie potrzebujesz konta Google. Zdjęcia i filmy są wysyłane do wspólnego Drive automatycznie.
+            Logowanie jest zapamiętane na tym urządzeniu. Google Drive działa w tle przez wspólne konto reisekoreajapan2026@gmail.com.
           </p>
         </motion.form>
       </div>
