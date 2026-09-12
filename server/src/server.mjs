@@ -526,8 +526,13 @@ async function handleUploadSession(req, res, user) {
   const name = String(body.name || '').trim();
   const mimeType = normalizedMediaMime(name, body.mimeType);
   const size = Number(body.size || 0);
+  const uploadId = String(body.uploadId || '').trim();
   if (!name || !Number.isFinite(size) || size <= 0) {
     json(res, 400, { error: 'invalid_file', message: 'Brak nazwy lub rozmiaru pliku.' });
+    return;
+  }
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(uploadId)) {
+    json(res, 400, { error: 'invalid_upload_id', message: 'Nieprawidłowy identyfikator uploadu.' });
     return;
   }
   if (size > MAX_UPLOAD_BYTES) {
@@ -554,7 +559,7 @@ async function handleUploadSession(req, res, user) {
       body: JSON.stringify({
         name,
         parents: [folderId],
-        appProperties: { uploader: user.username, mediateka: '1' },
+        appProperties: { uploader: user.username, mediateka: '1', uploadId },
       }),
     },
   );
@@ -569,7 +574,52 @@ async function handleUploadSession(req, res, user) {
     json(res, 502, { error: 'upload_url_missing', message: 'Google nie zwrócił adresu sesji wysyłania.' });
     return;
   }
-  json(res, 200, { sessionUrl, chunkSize: 8 * 1024 * 1024, maxUploadBytes: MAX_UPLOAD_BYTES });
+  json(res, 200, {
+    sessionUrl,
+    uploadId,
+    chunkSize: 8 * 1024 * 1024,
+    maxUploadBytes: MAX_UPLOAD_BYTES,
+  });
+}
+
+async function handleUploadStatus(req, res, url) {
+  const uploadId = String(url.searchParams.get('uploadId') || '').trim();
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(uploadId)) {
+    json(res, 400, { error: 'invalid_upload_id', message: 'Nieprawidłowy identyfikator uploadu.' });
+    return;
+  }
+
+  const folderId = await ensureFolder();
+  const q = encodeURIComponent(
+    `'${escapeDriveQuery(folderId)}' in parents and trashed=false and appProperties has { key='uploadId' and value='${escapeDriveQuery(uploadId)}' }`,
+  );
+  const fields = 'files(id,name,mimeType,size,createdTime,appProperties)';
+  const response = await googleFetch(
+    `${DRIVE_API}/files?q=${q}&spaces=drive&fields=${encodeURIComponent(fields)}&orderBy=${encodeURIComponent('createdTime desc')}&pageSize=5`,
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('Upload status check failed:', response.status, data);
+    json(res, 502, { error: 'upload_status_failed', message: 'Nie udało się potwierdzić uploadu.' });
+    return;
+  }
+
+  const file = data.files?.[0];
+  if (!file) {
+    json(res, 200, { complete: false });
+    return;
+  }
+
+  json(res, 200, {
+    complete: true,
+    file: {
+      id: file.id,
+      name: file.name,
+      mimeType: normalizedMediaMime(file.name, file.mimeType),
+      size: file.size ? Number(file.size) : undefined,
+      createdTime: file.createdTime,
+    },
+  });
 }
 
 async function handleDelete(req, res, id, user) {
@@ -642,6 +692,13 @@ const server = http.createServer(async (req, res) => {
       const user = requireAuth(req, res);
       if (!user) return;
       await handleUploadSession(req, res, user);
+      return;
+    }
+
+    if (req.method === 'GET' && path === '/api/uploads/status') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      await handleUploadStatus(req, res, url);
       return;
     }
 

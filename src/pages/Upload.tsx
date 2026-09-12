@@ -18,16 +18,18 @@ import { uploadToDrive, DriveError } from '@/lib/drive';
 import { formatBytes } from '@/lib/format';
 import { getConfig } from '@/config';
 import { cn } from '@/lib/utils';
-import { isImageLike, isVideoLike, normalizedMediaMime } from '@/lib/media-format';
+import { isImageLike, isVideoLike } from '@/lib/media-format';
 
 const MAX_SIZE = getConfig().maxUploadBytes;
+const MAX_VISIBLE_PREVIEWS = 12;
+const UPLOAD_CONCURRENCY = 2;
 
 type ItemStatus = 'queued' | 'uploading' | 'done' | 'error';
 
 interface QueueItem {
   id: number;
   file: File;
-  preview: string;
+  preview?: string;
   isVideo: boolean;
   status: ItemStatus;
   progress: number;
@@ -41,16 +43,21 @@ function UploadInner() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [doneAll, setDoneAll] = useState(false);
+  const [completedCount, setCompletedCount] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const galleryInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
+  const queueRef = useRef<QueueItem[]>([]);
 
-  // Cleanup lokaler Object-URLs
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  // Object-URL-e zwalniamy bez setState podczas odmontowania widoku.
   useEffect(() => {
     return () => {
-      setQueue((q) => {
-        q.forEach((it) => URL.revokeObjectURL(it.preview));
-        return q;
+      queueRef.current.forEach((it) => {
+        if (it.preview) URL.revokeObjectURL(it.preview);
       });
     };
   }, []);
@@ -71,11 +78,17 @@ function UploadInner() {
           toast(`${file.name} jest za duży (maks. ${Math.round(MAX_SIZE / 1024 ** 3)} GB).`, 'error');
           continue;
         }
+        const video = isVideoLike(file.name, file.type);
         accepted.push({
           id: ++itemId,
           file,
-          preview: URL.createObjectURL(file),
-          isVideo: isVideoLike(file.name, file.type),
+          // Na iPhone nie tworzymy podglądu wideo. Samo wczytanie metadanych MOV/HEVC
+          // potrafi długo blokować picker Zdjęć i zużywać dużo pamięci.
+          preview:
+            video || queueRef.current.length + accepted.length >= MAX_VISIBLE_PREVIEWS
+              ? undefined
+              : URL.createObjectURL(file),
+          isVideo: video,
           status: 'queued',
           progress: 0,
         });
@@ -91,7 +104,7 @@ function UploadInner() {
   const removeItem = (id: number) => {
     setQueue((q) => {
       const it = q.find((x) => x.id === id);
-      if (it) URL.revokeObjectURL(it.preview);
+      if (it?.preview) URL.revokeObjectURL(it.preview);
       return q.filter((x) => x.id !== id);
     });
   };
@@ -104,34 +117,81 @@ function UploadInner() {
       toast('Sesja wygasła — zaloguj się ponownie.', 'error');
       return;
     }
+
+    const items = queue.filter((item) => item.status !== 'done');
+    if (!items.length) return;
+
     setUploading(true);
-    // Sequentiell: ein File nach dem anderen (schont Handy-Verbindungen)
-    for (const item of queue) {
-      if (item.status === 'done') continue;
-      patchItem(item.id, { status: 'uploading', progress: 0, error: undefined });
-      try {
-        await uploadToDrive(item.file, gateUser.username, (frac) =>
-          patchItem(item.id, { progress: frac }),
-        );
-        patchItem(item.id, { status: 'done', progress: 1 });
-      } catch (err) {
-        patchItem(item.id, {
-          status: 'error',
-          error: err instanceof DriveError ? err.friendly : 'Nie udało się wysłać pliku.',
-        });
+    setDoneAll(false);
+
+    const succeeded = new Set<number>();
+    const failed = new Set<number>();
+    let cursor = 0;
+
+    // Dwa równoległe uploady są wyraźnie szybsze dla paczki zdjęć z iPhone,
+    // ale nadal oszczędzają pamięć i połączenie przy dużych filmach.
+    const worker = async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        const item = items[index];
+        if (!item) return;
+
+        patchItem(item.id, { status: 'uploading', progress: 0, error: undefined });
+        try {
+          await uploadToDrive(item.file, gateUser.username, (frac) =>
+            patchItem(item.id, { progress: frac }),
+          );
+          succeeded.add(item.id);
+          patchItem(item.id, { status: 'done', progress: 1 });
+        } catch (err) {
+          failed.add(item.id);
+          patchItem(item.id, {
+            status: 'error',
+            error: err instanceof DriveError ? err.friendly : 'Nie udało się wysłać pliku.',
+          });
+        }
       }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(UPLOAD_CONCURRENCY, items.length) },
+      () => worker(),
+    );
+    await Promise.all(workers);
+
+    // Po każdym udanym wysłaniu wymuszamy świeżą listę z Drive. Dzięki force=true
+    // nie zostanie użyty starszy request rozpoczęty przed uploadem.
+    if (succeeded.size > 0) {
+      await refreshMedia(true);
     }
-    setUploading(false);
-    setQueue((q) => {
-      const failed = q.filter((x) => x.status === 'error').length;
-      if (failed > 0) {
-        toast(`Nie udało się wysłać ${failed} ${failed === 1 ? 'pliku' : 'plików'} — spróbuj ponownie.`, 'error');
-      } else {
-        setDoneAll(true);
-        void refreshMedia();
+
+    // Udane pliki znikają z kolejki od razu. Zostają tylko ewentualne błędy,
+    // które użytkownik może ponowić jednym kliknięciem.
+    setQueue((current) => {
+      for (const item of current) {
+        if (succeeded.has(item.id) && item.preview) URL.revokeObjectURL(item.preview);
       }
-      return q;
+      return current.filter((item) => !succeeded.has(item.id));
     });
+
+    setUploading(false);
+
+    if (failed.size > 0) {
+      toast(
+        `Wysłano ${succeeded.size}. Nie udało się wysłać ${failed.size} ${
+          failed.size === 1 ? 'pliku' : 'plików'
+        } — pozostały w kolejce do ponowienia.`,
+        'error',
+      );
+    } else {
+      setCompletedCount(succeeded.size);
+      setDoneAll(true);
+      toast(
+        `Wysłano ${succeeded.size} ${succeeded.size === 1 ? 'plik' : 'plików'} — galeria odświeżona ✨`,
+        'success',
+      );
+    }
   };
 
   const totalBytes = queue.reduce((s, x) => s + x.file.size, 0);
@@ -171,10 +231,9 @@ function UploadInner() {
           <SuccessCard
             key="success"
             name={gateUser?.displayName ?? ''}
-            previews={queue.map((q) => q.preview)}
+            count={completedCount}
             onReset={() => {
-              queue.forEach((it) => URL.revokeObjectURL(it.preview));
-              setQueue([]);
+              setCompletedCount(0);
               setDoneAll(false);
             }}
           />
@@ -236,7 +295,7 @@ function UploadInner() {
             <input
               ref={galleryInput}
               type="file"
-              accept="image/*,video/*,.mov,.mp4,.m4v,.hevc,.h265"
+              accept="image/*,video/*"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -247,7 +306,7 @@ function UploadInner() {
             <input
               ref={cameraInput}
               type="file"
-              accept="image/*,video/*,.mov,.mp4,.m4v,.hevc,.h265"
+              accept="image/*,video/*"
               capture="environment"
               className="hidden"
               onChange={(e) => {
@@ -265,7 +324,7 @@ function UploadInner() {
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
                   <AnimatePresence>
-                    {queue.map((item) => (
+                    {queue.slice(0, MAX_VISIBLE_PREVIEWS).map((item) => (
                       <motion.div
                         key={item.id}
                         layout
@@ -278,11 +337,22 @@ function UploadInner() {
                         )}
                       >
                         {item.isVideo ? (
-                          <video className="h-full w-full object-cover" muted playsInline preload="metadata">
-                            <source src={item.preview} type={normalizedMediaMime(item.file.name, item.file.type)} />
-                          </video>
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-white/5 px-2 text-center">
+                            <Camera size={24} className="text-[#A78BFA]" />
+                            <span className="max-w-full truncate text-[10px] text-muted-foreground">
+                              {item.file.name}
+                            </span>
+                          </div>
+                        ) : item.preview ? (
+                          <img
+                            src={item.preview}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
-                          <img src={item.preview} alt="" className="h-full w-full object-cover" />
+                          <div className="h-full w-full bg-white/5" />
                         )}
                         {/* Status-Overlay */}
                         {item.status === 'uploading' && (
@@ -316,6 +386,11 @@ function UploadInner() {
                     ))}
                   </AnimatePresence>
                 </div>
+                {queue.length > MAX_VISIBLE_PREVIEWS && (
+                  <p className="mt-2 text-center text-xs text-muted-foreground">
+                    + {queue.length - MAX_VISIBLE_PREVIEWS} kolejnych plików — bez ciężkich podglądów, żeby iPhone działał szybciej
+                  </p>
+                )}
 
                 <motion.button
                   whileTap={{ scale: 0.96 }}
@@ -383,7 +458,7 @@ function ProgressRing({ progress }: { progress: number }) {
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white">
-        {Math.round(progress * 100)}%
+        {progress >= 1 ? 100 : Math.min(99, Math.floor(progress * 100))}%
       </span>
     </div>
   );
@@ -392,11 +467,11 @@ function ProgressRing({ progress }: { progress: number }) {
 /** Erfolgs-Karte mit Konfetti. */
 function SuccessCard({
   name,
-  previews,
+  count,
   onReset,
 }: {
   name: string;
-  previews: string[];
+  count: number;
   onReset: () => void;
 }) {
   const confetti = useRef(
@@ -425,19 +500,9 @@ function SuccessCard({
         />
       ))}
       <p className="font-hand text-3xl text-[#5EEAD4]">Dodane! Dzięki, {name} 🎉</p>
-      <div className="mt-5 flex justify-center gap-2 overflow-x-auto">
-        {previews.slice(0, 6).map((src, i) => (
-          <motion.img
-            key={src}
-            src={src}
-            alt=""
-            initial={{ x: 40, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.2 + i * 0.07 }}
-            className="h-16 w-16 rounded-lg object-cover"
-          />
-        ))}
-      </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {count === 1 ? '1 plik został wysłany' : `${count} plików zostało wysłanych`} i galeria została odświeżona.
+      </p>
       <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
         <Link
           to="/"

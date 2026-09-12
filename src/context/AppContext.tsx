@@ -26,7 +26,7 @@ interface AppContextValue {
   toasts: ToastMsg[];
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  refreshMedia: () => Promise<void>;
+  refreshMedia: (force?: boolean) => Promise<void>;
   removeMedia: (id: string) => Promise<boolean>;
   toast: (text: string, kind?: ToastMsg['kind']) => void;
 }
@@ -63,9 +63,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMediaError(null);
   }, []);
 
-  const refreshMedia = useCallback(async () => {
+  const refreshMedia = useCallback(async (force = false) => {
     if (!gateUser) return;
-    if (refreshInFlight.current) return refreshInFlight.current;
+
+    // Po uploadzie potrzebujemy NOWEJ listy z Drive. Jeżeli właśnie trwa starsze
+    // odświeżanie (np. rozpoczęte przy wejściu do galerii), poczekaj na nie i
+    // wykonaj jeszcze jedno żądanie zamiast zwracać potencjalnie nieaktualny wynik.
+    if (refreshInFlight.current) {
+      if (!force) return refreshInFlight.current;
+      try {
+        await refreshInFlight.current;
+      } catch {
+        // Poniżej i tak wykonamy świeżą próbę.
+      }
+    }
 
     const run = (async () => {
       setMediaLoading(true);

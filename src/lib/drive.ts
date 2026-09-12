@@ -105,8 +105,20 @@ export function clearBlobCache(): void {
 
 interface UploadSession {
   sessionUrl: string;
+  uploadId: string;
   chunkSize?: number;
   maxUploadBytes?: number;
+}
+
+interface UploadStatus {
+  complete: boolean;
+  file?: {
+    id?: string;
+    name?: string;
+    mimeType?: string;
+    size?: number;
+    createdTime?: string;
+  };
 }
 
 interface ChunkResult {
@@ -167,6 +179,29 @@ async function sleep(ms: number) {
   await new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+
+function makeUploadId(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const random = Math.random().toString(36).slice(2);
+  return `up-${Date.now().toString(36)}-${random}`;
+}
+
+async function confirmUpload(uploadId: string, attempts = 1): Promise<UploadStatus | null> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const result = await apiFetch<UploadStatus>(
+        `/api/uploads/status?uploadId=${encodeURIComponent(uploadId)}`,
+      );
+      if (result.complete) return result;
+    } catch {
+      // Kontrola jest mechanizmem awaryjnym. Błąd samej kontroli nie może
+      // przerwać normalnego wznowienia resumable upload.
+    }
+    if (i + 1 < attempts) await sleep(350 * (i + 1));
+  }
+  return null;
+}
+
 export async function uploadToDrive(
   file: File,
   uploaderName: string,
@@ -176,12 +211,19 @@ export async function uploadToDrive(
     throw new DriveError('demo', 'Tryb demo: wysyłanie na Google Drive jest wyłączone.');
   }
 
+  const uploadId = makeUploadId();
   let session: UploadSession;
   try {
     session = await apiFetch<UploadSession>('/api/uploads/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: file.name, mimeType: normalizedMediaMime(file.name, file.type), size: file.size, uploader: uploaderName }),
+      body: JSON.stringify({
+        name: file.name,
+        mimeType: normalizedMediaMime(file.name, file.type),
+        size: file.size,
+        uploader: uploaderName,
+        uploadId,
+      }),
     });
   } catch (err) {
     throw wrapApiError(err, 'Nie udało się rozpocząć wysyłania pliku.');
@@ -198,6 +240,7 @@ export async function uploadToDrive(
   while (start < file.size) {
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
+    const finalChunk = end === file.size;
     let attempt = 0;
 
     while (true) {
@@ -209,7 +252,7 @@ export async function uploadToDrive(
           end,
           file.size,
           normalizedMediaMime(file.name, file.type),
-          (loaded) => onProgress(Math.min(0.999, (start + loaded) / file.size)),
+          (loaded) => onProgress(Math.min(0.99, (start + loaded) / file.size)),
         );
         lastResponse = result;
 
@@ -227,31 +270,77 @@ export async function uploadToDrive(
 
         if (result.status === 308) {
           start = nextByteFromRange(result.range) ?? end;
-          onProgress(Math.min(0.999, start / file.size));
+          onProgress(Math.min(0.99, start / file.size));
           break;
         }
 
-        if (result.status === 404) {
-          throw new DriveError('upload-expired', 'Sesja wysyłania wygasła. Wybierz plik ponownie i spróbuj jeszcze raz.', 404);
+        // Na iOS/Safari zdarza się, że ostatni PUT dotrze do Google, ale
+        // odpowiedź końcowa zostanie potraktowana przez przeglądarkę jako błąd.
+        // Zanim pokażemy czerwony błąd, sprawdzamy po stronie backendu, czy plik
+        // faktycznie już istnieje w katalogu Drive.
+        if (finalChunk) {
+          const confirmed = await confirmUpload(session.uploadId || uploadId, 4);
+          if (confirmed?.complete) {
+            onProgress(1);
+            return confirmed.file || { name: file.name };
+          }
         }
-        if (result.status >= 500 || result.status === 429) throw new Error(`retryable-${result.status}`);
+
+        if (result.status === 404) {
+          throw new DriveError(
+            'upload-expired',
+            'Sesja wysyłania wygasła. Wybierz plik ponownie i spróbuj jeszcze raz.',
+            404,
+          );
+        }
+        if (result.status >= 500 || result.status === 429 || result.status === 0) {
+          throw new Error(`retryable-${result.status}`);
+        }
         throw new DriveError(
           `upload-${result.status}`,
           `Nie udało się wysłać pliku (błąd ${result.status}).`,
           result.status,
         );
       } catch (err) {
-        if (err instanceof DriveError) throw err;
+        if (err instanceof DriveError) {
+          if (finalChunk) {
+            const confirmed = await confirmUpload(session.uploadId || uploadId, 4);
+            if (confirmed?.complete) {
+              onProgress(1);
+              return confirmed.file || { name: file.name };
+            }
+          }
+          throw err;
+        }
+
+        if (finalChunk) {
+          const confirmed = await confirmUpload(session.uploadId || uploadId, 3);
+          if (confirmed?.complete) {
+            onProgress(1);
+            return confirmed.file || { name: file.name };
+          }
+        }
+
         attempt += 1;
         if (attempt > 4) {
-          throw new DriveError('upload-network', 'Połączenie zostało przerwane podczas wysyłania. Spróbuj ponownie.');
+          const confirmed = await confirmUpload(session.uploadId || uploadId, 5);
+          if (confirmed?.complete) {
+            onProgress(1);
+            return confirmed.file || { name: file.name };
+          }
+          throw new DriveError(
+            'upload-network',
+            'Połączenie zostało przerwane podczas wysyłania. Spróbuj ponownie.',
+          );
         }
-        await sleep(600 * 2 ** (attempt - 1));
+
+        await sleep(500 * 2 ** (attempt - 1));
         try {
           const status = await queryUploadStatus(session.sessionUrl, file.size);
           if (status.status === 200 || status.status === 201) {
+            const confirmed = await confirmUpload(session.uploadId || uploadId, 3);
             onProgress(1);
-            return { name: file.name };
+            return confirmed?.file || { name: file.name };
           }
           if (status.status === 308) {
             const next = nextByteFromRange(status.range);
@@ -260,11 +349,26 @@ export async function uploadToDrive(
               break;
             }
           }
+          if (status.status === 404 && finalChunk) {
+            const confirmed = await confirmUpload(session.uploadId || uploadId, 4);
+            if (confirmed?.complete) {
+              onProgress(1);
+              return confirmed.file || { name: file.name };
+            }
+          }
         } catch {
           // Następna próba wyśle ponownie bieżący kawałek.
         }
       }
     }
+  }
+
+  // Ostatnia ochrona przed fałszywym błędem: jeżeli Drive przyjął plik, ale
+  // przeglądarka zgubiła odpowiedź końcową, backend potwierdzi go po uploadId.
+  const confirmed = await confirmUpload(session.uploadId || uploadId, 5);
+  if (confirmed?.complete) {
+    onProgress(1);
+    return confirmed.file || { name: file.name };
   }
 
   if (lastResponse?.status === 200 || lastResponse?.status === 201) {
