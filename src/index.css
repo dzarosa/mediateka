@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dunkles „night-neon Seoul × sakura Tokyo"-Theme (design.md) */
+    --background: 240 24% 5%; /* #0B0B12 */
+    --foreground: 36 33% 93%; /* #F5EFE6 */
+    --card: 240 20% 11%; /* #14141F */
+    --card-foreground: 36 33% 93%;
+    --popover: 240 20% 11%;
+    --popover-foreground: 36 33% 93%;
+    --primary: 346 100% 68%; /* #FF5C7A Sakura Coral */
+    --primary-foreground: 240 24% 5%;
+    --secondary: 255 92% 76%; /* #A78BFA Seoul Violet */
+    --secondary-foreground: 240 24% 5%;
+    --muted: 240 12% 18%;
+    --muted-foreground: 250 8% 63%; /* #9B98A8 */
+    --accent: 255 92% 76%;
+    --accent-foreground: 240 24% 5%;
+    --destructive: 0 91% 71%; /* #F87171 */
+    --destructive-foreground: 240 24% 5%;
+    --border: 0 0% 100% / 0.1;
+    --input: 0 0% 100% / 0.14;
+    --ring: 346 100% 68%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Sora', system-ui, sans-serif;
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, rgba(167, 139, 250, 0.12), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(255, 92, 122, 0.1), transparent 55%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: rgba(255, 92, 122, 0.4);
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: 'Unbounded', 'Sora', sans-serif;
+    letter-spacing: -0.02em;
+  }
+  .font-hand {
+    font-family: 'Caveat', cursive;
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #ff5c7a 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .btn-gradient {
+    background: linear-gradient(135deg, #ff5c7a 0%, #a78bfa 100%);
+    background-size: 200% 200%;
+    transition:
+      background-position 0.5s ease,
+      transform 0.15s ease,
+      box-shadow 0.3s ease;
+  }
+  .btn-gradient:hover {
+    background-position: 100% 100%;
+    box-shadow: 0 12px 40px rgba(255, 92, 122, 0.35);
+  }
+  .gradient-line {
+    height: 1px;
+    background: linear-gradient(90deg, #ff5c7a, #a78bfa, transparent);
+  }
+  /* Masonry: CSS columns */
+  .masonry {
+    column-gap: 0.5rem;
+  }
+  @media (min-width: 768px) {
+    .masonry {
+      column-gap: 0.75rem;
+    }
+  }
+  .masonry > * {
+    break-inside: avoid;
+    margin-bottom: 0.5rem;
+  }
+  @media (min-width: 768px) {
+    .masonry > * {
+      margin-bottom: 0.75rem;
+    }
+  }
+}
+
+@layer utilities {
+  .animate-seal-rotate {
+    animation: seal-rotate 20s linear infinite;
+  }
+  .animate-marquee {
+    animation: marquee 40s linear infinite;
+  }
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+  .animate-shake {
+    animation: shake 0.4s ease;
+  }
+  .animate-float {
+    animation: float-y 5s ease-in-out infinite;
+  }
+  .animate-kenburns {
+    animation: kenburns 24s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes seal-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(-6px);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
