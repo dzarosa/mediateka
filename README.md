@@ -6,7 +6,7 @@ Datenbank** — die App läuft komplett im Browser auf **GitHub Pages** und spri
 
 ## Tech-Stack
 
-Node 20 · Vite 7 · React 19 + TypeScript · Tailwind CSS 3.4 · framer-motion · lucide-react ·
+Node 22 · Vite 7 · React 19 + TypeScript · Tailwind CSS 3.4 · framer-motion · lucide-react ·
 HashRouter (GitHub Pages hat kein SPA-Fallback) · `base: './'` (relative Pfade)
 
 ## Lokale Entwicklung
@@ -32,15 +32,16 @@ window.MEDIATEKA_CONFIG = {
 Solange keine echte Client-ID eingetragen ist, zeigt die App einen eleganten
 „Setup erforderlich"-Screen. **Ausführliche Anleitung: [GITHUB-SETUP.md](GITHUB-SETUP.md).**
 
-## Anmelde-Ablauf (zwei Schritte)
+## Anmelde-Ablauf
 
-1. **Weiche Gruppensperre** — Name-Chip + Gruppen-Passwort.
-   ⚠️ **Das ist KEINE echte Sicherheit!** Die Passwörter stehen im ausgelieferten JavaScript
-   (`src/lib/gate.ts`) und sind für jede:n sichtbar. Sie ist nur ein freundlicher Türrahmen.
-2. **Google-Login** (OAuth 2.0, Scopes `drive.readonly` + `drive.file`) — das ist die echte
-   Zugriffskontrolle: Nur Google-Konten, denen der Ordner `Korea_Japonia_2026` geteilt wurde
-   („Bearbeiter"), können lesen & hochladen. Das Access-Token liegt nur im Speicher
-   (kein localStorage); nach Reload wird per `requestAccessToken({prompt: ''})` still erneuert.
+1. **Login w Mediatece** — wybór użytkownika + hasło grupowe.
+2. **Autoryzacja Google Drive** (OAuth 2.0) — Google wymaga jej dla prywatnego Dysku.
+   Nie trzeba używać listy „Test users”: w Google Cloud ustaw status aplikacji OAuth na
+   **In production / Produkcja**. Uczestnicy nadal muszą jednorazowo zatwierdzić dostęp Google.
+
+Ważne: samo hasło zapisane w statycznym HTML/JavaScript nie może bezpiecznie zastąpić
+autoryzacji Google Drive. Do wariantu „wyłącznie login + hasło, bez okna Google” potrzebny
+byłby osobny backend przechowujący poświadczenia Google po stronie serwera.
 
 ## Deployment
 

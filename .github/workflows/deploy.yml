@@ -1,5 +1,4 @@
-# Deployt die statische App auf GitHub Pages.
-# Ablauf: npm ci → npm run build (Vite) → dist/ als Pages-Artefakt.
+# Deploy statycznej aplikacji na GitHub Pages.
 name: Deploy to GitHub Pages
 
 on:
@@ -12,7 +11,6 @@ permissions:
   id-token: write
   contents: read
 
-# Gleichzeitige Deployments vermeiden
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -21,13 +19,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
+          registry-url: https://registry.npmjs.org
+      - name: Force official npm registry
+        run: npm config set registry https://registry.npmjs.org/
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --fetch-retries=5 --fetch-retry-maxtimeout=120000
+      - name: Build
+        run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

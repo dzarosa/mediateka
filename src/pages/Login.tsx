@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils';
 const BASE = import.meta.env.BASE_URL;
 
 /**
- * Login: Schritt 1 = weiche Gruppensperre (Chips + Passwort) — IMMER verfügbar,
- * unabhängig von der Google-Konfiguration.
- * Schritt 2 = Google-Login (nur wenn eine Client-ID konfiguriert ist).
- * Ohne Client-ID → automatischer Demo-Modus (Beispielbilder, kein Google-Schritt).
+ * Login: krok 1 = użytkownik + hasło grupowe.
+ * Krok 2 = autoryzacja Google Drive. Lista „Test users” nie jest potrzebna,
+ * jeśli aplikacja OAuth w Google Cloud ma status „In production”.
+ * Prywatnego Google Drive nie da się bezpiecznie autoryzować samym hasłem HTML.
  */
 export default function Login() {
   const {
@@ -137,7 +137,7 @@ export default function Login() {
               )}
             >
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                Krok 1 · Kim jesteś?
+                Krok 1 · Użytkownik
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {USERS.map((u) => (
@@ -213,8 +213,8 @@ export default function Login() {
                 Hasło grupowe dostaniecie na czacie wyjazdu ✈️
               </p>
               <p className="mt-2 text-center text-[11px] leading-relaxed text-muted-foreground/70">
-                To tylko miękka blokada po stronie przeglądarki — prawdziwą ochronę daje konto
-                Google i udostępniony folder.
+                Logowanie użytkownik + hasło chroni wejście do Mediateki. Dostęp do prywatnego
+                Dysku Google jest dodatkowo autoryzowany przez Google.
               </p>
             </motion.form>
           ) : (
@@ -252,8 +252,8 @@ export default function Login() {
               </motion.button>
               {googleError && <p className="mt-3 text-sm text-[#FF5C7A]">{googleError}</p>}
               <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground/70">
-                Przy pierwszym logowaniu Google może pokazać ostrzeżenie „Aplikacja niezweryfikowana"
-                → kliknij <em>Zaawansowane</em> → <em>Przejdź dalej</em>.
+                W Google Cloud ustaw aplikację OAuth na <strong>In production / Produkcja</strong>.
+                Wtedy nie trzeba dodawać uczestników do listy „Test users”.
               </p>
             </motion.div>
           )}

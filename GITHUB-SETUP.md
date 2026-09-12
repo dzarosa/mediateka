@@ -16,13 +16,18 @@ Drive-Anschluss zusätzlich ein Google-Konto und ca. 10 Minuten).
 
 ## Login (Logowanie) — Passwörter
 
+> **Ważne:** na statycznym GitHub Pages nie da się zalogować do prywatnego Google Drive
+> wyłącznie własnym loginem i hasłem z HTML. Google wymaga OAuth. W tej wersji uczestnicy
+> logują się najpierw nazwą + hasłem Mediateki, a Google OAuth działa bez listy Test users,
+> gdy aplikacja jest ustawiona na **In production / Produkcja**.
+
 - **Gruppe (alle außer Admin):** `Korajapan2026!!`
 - **Admin:** `BaC2026!!`
 
-Das Passwort allein reicht zum Rein kommen: Name antippen + Passwort eingeben — fertig.
-Erst wenn in `public/config.js` eine echte Google Client ID eingetragen ist, erscheint danach
-der optionale Schritt „Połącz z Google" (Galerie direkt aus dem Drive-Ordner).
-Ohne Client-ID startet die App automatisch im Demo-Modus mit den Beispielbildern.
+Do Mediateki logujesz się nazwą użytkownika + hasłem. Ponieważ w tej paczce jest już
+wpisana prawdziwa Google Client ID, po tym logowaniu pojawi się jednorazowa autoryzacja
+Google Drive. Nie trzeba dodawać uczestników jako Test users, jeśli aplikacja OAuth ma status
+**In production / Produkcja**. Bez Client ID aplikacja przechodzi wyłącznie w tryb demo.
 
 ## Schritt 1 — GitHub-Repo anlegen & Code hochladen
 
@@ -67,9 +72,10 @@ Schritte 3–5 schalten zusätzlich den echten Google-Drive-Speicher frei.
    - Typ: **Extern** → „Erstellen".
    - App-Name z. B. `Mediateka Seul Tokio 2026`, deine E-Mail als Support-/Kontaktadresse.
    - Scopes kannst du überspringen (die App fragt sie beim Login direkt ab).
-   - **Wichtig — Testnutzer:** Trage hier die **Google-Konten aller 9 Teilnehmer:innen** ein
-     (und dein eigenes). Solange die App im „Test"-Status ist, können **nur** diese Konten
-     sich anmelden!
+   - **Keine Test-User-Liste verwenden:** Öffne in der Google Auth Platform den Bereich
+     **Audience / Zielgruppe** und stelle den Veröffentlichungsstatus auf
+     **In production / Produkcja** („Publish app"). Dadurch müssen die 9 Teilnehmer nicht
+     einzeln als Testnutzer eingetragen werden.
 4. **APIs & Dienste → Anmeldedaten → „Anmeldedaten erstellen" → „OAuth-Client-ID"**:
    - Anwendungstyp: **Webanwendung**, Name z. B. `Mediateka GitHub Pages`.
    - **Autorisierte JavaScript-Ursprünge:** `https://<DEIN-USER>.github.io`
@@ -110,9 +116,9 @@ Schritte 3–5 schalten zusätzlich den echten Google-Drive-Speicher frei.
    (Beispielbilder, Badge „DEMO" oben).
 4. **Mit konfigurierter Client-ID — Schritt 2 (Google):** „Zaloguj przez Google" →
    dein Google-Konto wählen.
-   - Beim ersten Mal erscheint evtl. **„Google hat diese App nicht verifiziert"** — das ist
-     normal bei selbst erstellten Apps im Test-Modus: **„Erweitert" → „Trotzdem fortfahren
-     (unsicher)"** → Berechtigungen bestätigen.
+   - Beim ersten Mal zeigt Google den Zustimmungsdialog für den Drive-Zugriff.
+   - Die App sollte vorher auf **In production / Produkcja** gestellt werden; dadurch ist
+     keine Liste mit Testnutzern notwendig.
    - Fertig — hochgeladene Dateien erscheinen im Ordner `Korea_Japonia_2026`.
 
 ---
@@ -126,16 +132,16 @@ Schritte 3–5 schalten zusätzlich den echten Google-Drive-Speicher frei.
   freigegebenes Google-Konto kann niemand echte Dateien sehen oder hochladen — egal, ob
   jemand das Gruppen-Passwort kennt. (Im Demo-Modus sieht man nur die öffentlichen
   Beispielbilder.)
-- Wer ein Konto aus der Gruppe entfernen will: Testnutzer in Google Cloud entfernen **und**
-  die Ordner-Freigabe in Drive aufheben.
+- Wer ein Konto aus der Gruppe entfernen will: die Ordner-Freigabe in Drive aufheben.
 
 ## Fehlersuche
 
 | Problem | Lösung |
 |---|---|
 | App zeigt Demo-Bilder + Badge „DEMO" | Gewollt, solange keine echte Client-ID eingetragen ist → optional Schritt 4 |
+| GitHub Action `npm ci` → `ENOTFOUND npm.mirrors.msh.team` | Behoben: `.npmrc`, Workflow und `package-lock.json` verwenden jetzt `https://registry.npmjs.org/` |
 | „Error 400: origin_mismatch" beim Google-Login | JavaScript-Ursprung falsch → Schritt 3.4, exakt `https://<user>.github.io` |
-| „Access blocked / App ist im Testmodus" | Google-Konto nicht als Testnutzer eingetragen → Schritt 3.3 |
+| „Access blocked / App ist im Testmodus" | Google Auth Platform → Audience → **Publish app / In production** → Schritt 3.3 |
 | „Nie znaleziono folderu" im UI | Ordner heißt anders oder ist dem Konto nicht geteilt → Schritt 5 |
 | Upload schlägt fehl (403) | Freigabe nur „Betrachter" → Rolle auf „Bearbeiter" ändern |
 | Seite zeigt 404 nach Reload | Normal wäre das ohne Hash-Routing — die App nutzt `/#/…`; Repo-Name in der URL prüfen |
