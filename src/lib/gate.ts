@@ -16,7 +16,7 @@ export interface GateUser {
   isAdmin: boolean;
 }
 
-export const GROUP_PASSWORD = 'korea_japan_2026!';
+export const GROUP_PASSWORD = 'Korajapan2026!!';
 export const ADMIN_PASSWORD = 'BaC2026!!';
 
 const SESSION_KEY = 'mediateka.session';

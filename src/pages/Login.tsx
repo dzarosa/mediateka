@@ -6,17 +6,26 @@ import { gateLogin, USERS } from '@/lib/gate';
 import { useApp } from '@/context/AppContext';
 import Seal from '@/components/Seal';
 import GrainOverlay from '@/components/GrainOverlay';
-import SetupRequired from '@/components/SetupRequired';
 import { cn } from '@/lib/utils';
 
 const BASE = import.meta.env.BASE_URL;
 
 /**
- * Login: Schritt 1 = weiche Gruppensperre (Chips + Passwort),
- * Schritt 2 = Google-Login (OAuth Token Client → Drive-Zugriff).
+ * Login: Schritt 1 = weiche Gruppensperre (Chips + Passwort) — IMMER verfügbar,
+ * unabhängig von der Google-Konfiguration.
+ * Schritt 2 = Google-Login (nur wenn eine Client-ID konfiguriert ist).
+ * Ohne Client-ID → automatischer Demo-Modus (Beispielbilder, kein Google-Schritt).
  */
 export default function Login() {
-  const { gateUser, gateLoginDone, signInGoogle, googleStatus, googleError, configured } = useApp();
+  const {
+    gateUser,
+    gateLoginDone,
+    signInGoogle,
+    enterDemo,
+    googleStatus,
+    googleError,
+    demoMode,
+  } = useApp();
   const navigate = useNavigate();
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -33,8 +42,13 @@ export default function Login() {
     if (googleStatus === 'ready') navigate('/', { replace: true });
   }, [googleStatus, navigate]);
 
+  // Demo-Modus (keine Google Client ID): Google-Schritt komplett überspringen —
+  // direkt nach der Gruppensperre automatisch in den Demo-Modus wechseln.
+  useEffect(() => {
+    if (gateUser && demoMode && googleStatus === 'idle') void enterDemo();
+  }, [gateUser, demoMode, googleStatus, enterDemo]);
+
   if (alreadyIn) return <Navigate to="/" replace />;
-  if (!configured) return <SetupRequired />;
 
   const submitGate = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -100,7 +114,7 @@ export default function Login() {
             transition={{ delay: 0.3 }}
             className="font-hand -rotate-2 text-2xl text-[#FF5C7A]"
           >
-            Korea &amp; Japonia 2026 ♡
+            Seul → Tokio · sierpień–wrzesień 2026 ♡
           </motion.p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">
             Wspólna galeria naszej grupy — zaloguj się, żeby dodawać zdjęcia i filmy.
@@ -176,7 +190,7 @@ export default function Login() {
               {error && <p className="mt-3 text-sm text-[#FF5C7A]">{error}</p>}
               {fails >= 3 && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Podpowiedź: hasło ma format <code className="text-[#5EEAD4]">korea_japan_2026!</code>{' '}
+                  Podpowiedź: hasło ma format <code className="text-[#5EEAD4]">Korajapan2026!!</code>{' '}
                   (admin ma własne).
                 </p>
               )}
@@ -265,7 +279,7 @@ export default function Login() {
           transition={{ delay: 0.8 }}
           className="absolute right-8 top-8 text-right"
         >
-          <p className="font-hand text-2xl text-white/90 drop-shadow">Seul → Tokio, czerwiec 2026</p>
+          <p className="font-hand text-2xl text-white/90 drop-shadow">Seul → Tokio, sierpień–wrzesień 2026</p>
           <svg width="120" height="40" viewBox="0 0 120 40" className="ml-auto mt-1 text-[#FF5C7A]">
             <motion.path
               d="M110 4 C 70 30, 40 6, 10 30"

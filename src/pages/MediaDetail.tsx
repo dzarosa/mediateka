@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 function DetailInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { media, mediaLoading, gateUser, removeMedia, refreshMedia } = useApp();
+  const { media, mediaLoading, gateUser, removeMedia, refreshMedia, demoMode } = useApp();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -191,7 +191,7 @@ function DetailInner() {
                 <ExternalLink size={14} /> Otwórz w Drive
               </a>
             )}
-            {gateUser?.isAdmin && item && (
+            {gateUser?.isAdmin && item && !demoMode && (
               <>
                 {!confirmDelete ? (
                   <button

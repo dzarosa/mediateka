@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 type Tab = 'overview' | 'moderation' | 'drive';
 
 function AdminInner() {
-  const { media, mediaLoading, refreshMedia, removeMedia, folderId, toast } = useApp();
+  const { media, mediaLoading, refreshMedia, removeMedia, folderId, toast, demoMode } = useApp();
   const [tab, setTab] = useState<Tab>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -107,6 +107,11 @@ function AdminInner() {
 
       {tab === 'moderation' && (
         <div className="mt-6">
+          {demoMode && (
+            <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs text-amber-200">
+              Tryb demo: usuwanie plików jest wyłączone.
+            </p>
+          )}
           {mediaLoading && !media ? (
             <div className="flex justify-center py-16">
               <Loader2 size={26} className="animate-spin text-[#A78BFA]" />
@@ -125,18 +130,20 @@ function AdminInner() {
                     {formatUploader(m.uploader)}
                     {m.type === 'video' && <Play size={9} fill="currentColor" />}
                   </div>
-                  <button
-                    onClick={() => void doDelete(m.id)}
-                    disabled={deletingId === m.id}
-                    className="absolute bottom-2 right-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#F87171]/90 text-[#0B0B12] transition hover:shadow-[0_0_16px_rgba(248,113,113,0.6)] disabled:opacity-50"
-                    title="Usuń z Drive"
-                  >
-                    {deletingId === m.id ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
-                  </button>
+                  {!demoMode && (
+                    <button
+                      onClick={() => void doDelete(m.id)}
+                      disabled={deletingId === m.id}
+                      className="absolute bottom-2 right-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#F87171]/90 text-[#0B0B12] transition hover:shadow-[0_0_16px_rgba(248,113,113,0.6)] disabled:opacity-50"
+                      title="Usuń z Drive"
+                    >
+                      {deletingId === m.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -151,6 +158,7 @@ function AdminInner() {
               <FolderOpen size={18} className="text-[#5EEAD4]" /> Status połączenia
             </h2>
             <dl className="mt-4 space-y-3">
+              {demoMode && <Row label="Tryb" value="DEMO — Google Drive wyłączony" />}
               <Row label="Folder Drive" value={getConfig().driveFolderName} />
               <Row label="ID folderu" value={folderId ?? '—'} mono />
               <Row label="Liczba plików" value={String(items.length)} />

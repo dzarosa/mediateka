@@ -14,7 +14,7 @@ const TABS = [
 ];
 
 export default function Navbar() {
-  const { gateUser, logout } = useApp();
+  const { gateUser, logout, demoMode } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,16 +27,26 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 glass border-x-0 border-t-0">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-3">
-          <Seal size={36} />
-          <div className="leading-tight">
-            <div className="font-display text-sm font-bold uppercase tracking-[0.12em]">
-              Mediateka
+        {/* Logo + ggf. Demo-Badge */}
+        <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-3">
+            <Seal size={36} />
+            <div className="leading-tight">
+              <div className="font-display text-sm font-bold uppercase tracking-[0.12em]">
+                Mediateka
+              </div>
+              <div className="font-hand text-base text-[#FF5C7A]">Seul → Tokio · sierpień–wrzesień 2026 ♡</div>
             </div>
-            <div className="font-hand text-base text-[#FF5C7A]">Korea &amp; Japonia 2026 ♡</div>
-          </div>
-        </Link>
+          </Link>
+          {demoMode && (
+            <span
+              className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B0B12]"
+              title="Tryb demo — Google Drive wyłączony / Demo-Modus: Google Drive deaktiviert"
+            >
+              Demo
+            </span>
+          )}
+        </div>
 
         {/* Tabs (desktop) */}
         <nav className="hidden items-center gap-1 md:flex">

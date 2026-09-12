@@ -1,4 +1,4 @@
-# Mediateka — Korea & Japonia 2026
+# Mediateka — Seul → Tokio, sierpień–wrzesień 2026
 
 Statische Gruppen-Mediathek (Fotos & Videos) für 9 Reisefreunde. **Kein Server, keine
 Datenbank** — die App läuft komplett im Browser auf **GitHub Pages** und spricht direkt mit der

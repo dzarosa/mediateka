@@ -19,6 +19,8 @@ export default function Gallery() {
     gateUser,
     googleStatus,
     signInGoogle,
+    enterDemo,
+    demoMode,
     media,
     mediaLoading,
     mediaError,
@@ -66,8 +68,28 @@ export default function Gallery() {
     setPulling(0);
   };
 
-  // Google noch nicht verbunden → Verbindungs-Karte
+  // Google noch nicht verbunden → Verbindungs-Karte (bzw. Demo-Karte)
   if (googleStatus !== 'ready') {
+    if (demoMode) {
+      return (
+        <div className="flex flex-col items-center py-20 text-center">
+          <Seal size={56} className="animate-seal-rotate" />
+          <h2 className="font-display mt-6 text-2xl font-bold">
+            Tryb <span className="text-gradient">demo</span>
+          </h2>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            Wersja demonstracyjna — Google Drive jest wyłączony, galeria pokazuje przykładowe
+            zdjęcia z aplikacji.
+          </p>
+          <button
+            onClick={() => void enterDemo()}
+            className="btn-gradient font-display mt-6 flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-[#0B0B12]"
+          >
+            Wejdź do demo
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center py-20 text-center">
         <Seal size={56} className="animate-seal-rotate" />

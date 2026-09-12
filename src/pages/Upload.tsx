@@ -37,7 +37,7 @@ interface QueueItem {
 let itemId = 0;
 
 function UploadInner() {
-  const { gateUser, folderId, refreshMedia, toast } = useApp();
+  const { gateUser, folderId, refreshMedia, toast, demoMode } = useApp();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [doneAll, setDoneAll] = useState(false);
@@ -57,6 +57,10 @@ function UploadInner() {
 
   const addFiles = useCallback(
     (files: FileList | File[]) => {
+      if (demoMode) {
+        toast('Tryb demo: wysyłanie na Google Drive jest wyłączone. 📁', 'info');
+        return;
+      }
       const accepted: QueueItem[] = [];
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
@@ -81,7 +85,7 @@ function UploadInner() {
         setDoneAll(false);
       }
     },
-    [toast],
+    [toast, demoMode],
   );
 
   const removeItem = (id: number) => {
@@ -150,11 +154,18 @@ function UploadInner() {
       <p className="font-hand mt-1 text-xl text-muted-foreground">
         prosto z telefonu — galeria otworzy się automatycznie 📱
       </p>
-      <div className="glass mt-4 flex items-center gap-2 rounded-full px-4 py-2 text-xs text-muted-foreground">
-        <HardDriveUpload size={14} className="text-[#5EEAD4]" />
-        Pliki trafiają prosto do katalogu Google Drive{' '}
-        <span className="font-semibold text-[#A78BFA]">{getConfig().driveFolderName}</span>
-      </div>
+      {demoMode ? (
+        <div className="mt-4 flex items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs text-amber-200">
+          <HardDriveUpload size={14} className="shrink-0" />
+          Tryb demo: wysyłanie na Google Drive będzie dostępne po konfiguracji (patrz GITHUB-SETUP.md).
+        </div>
+      ) : (
+        <div className="glass mt-4 flex items-center gap-2 rounded-full px-4 py-2 text-xs text-muted-foreground">
+          <HardDriveUpload size={14} className="text-[#5EEAD4]" />
+          Pliki trafiają prosto do katalogu Google Drive{' '}
+          <span className="font-semibold text-[#A78BFA]">{getConfig().driveFolderName}</span>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {doneAll ? (
@@ -335,7 +346,7 @@ function UploadInner() {
               ))}
             </div>
             <p className="font-hand mt-6 text-center text-lg text-muted-foreground">
-              — ekipa Korea &amp; Japonia 2026
+              — ekipa Seul → Tokio 2026
             </p>
           </motion.div>
         )}

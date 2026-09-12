@@ -34,7 +34,7 @@ import {
   setDriveToken,
   type DriveMedia,
 } from '@/lib/drive';
-import { getConfig, isConfigured } from '@/config';
+import { getConfig, isConfigured, isDemoMode } from '@/config';
 
 export type GoogleStatus = 'idle' | 'signing-in' | 'ready' | 'error';
 
@@ -46,6 +46,7 @@ export interface ToastMsg {
 
 interface AppContextValue {
   configured: boolean;
+  demoMode: boolean;
   gateUser: GateUser | null;
   googleStatus: GoogleStatus;
   googleError: string | null;
@@ -56,6 +57,7 @@ interface AppContextValue {
   toasts: ToastMsg[];
   gateLoginDone: (user: GateUser) => void;
   signInGoogle: () => Promise<boolean>;
+  enterDemo: () => Promise<void>;
   logout: () => void;
   refreshMedia: () => Promise<void>;
   removeMedia: (id: string) => Promise<boolean>;
@@ -65,6 +67,9 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 let toastId = 0;
+
+/** Session-Flag: Nutzer hat das Demo bereits betreten (für Reload). */
+const DEMO_FLAG = 'mediateka.demo';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [gateUser, setGateUser] = useState<GateUser | null>(() => getSession());
@@ -91,19 +96,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshMedia = useCallback(async () => {
+    const demo = isDemoMode();
     const token = getAccessToken();
-    if (!token) return;
+    if (!demo && !token) return;
+    // Im Demo-Modus reicht ein Platzhalter-Token — drive.ts greift dann nicht
+    // auf die Drive-API zu, sondern liefert statische Beispieldaten.
+    const effectiveToken = token ?? 'demo';
     setMediaLoading(true);
     setMediaError(null);
-    setDriveToken(token);
+    setDriveToken(effectiveToken);
     try {
       let fid = folderIdRef.current;
       if (!fid) {
-        fid = await findFolder(token, getConfig().driveFolderName);
+        fid = await findFolder(effectiveToken, getConfig().driveFolderName);
         folderIdRef.current = fid;
         setFolderId(fid);
       }
-      const items = await listMedia(token, fid);
+      const items = await listMedia(effectiveToken, fid);
       setMedia(items);
     } catch (err) {
       if (err instanceof DriveError && err.status === 401) {
@@ -123,6 +132,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const afterToken = useCallback(async () => {
     setGoogleStatus('ready');
     setDriveToken(getAccessToken());
+    await refreshMedia();
+  }, [refreshMedia]);
+
+  /** Demo-Modus: direkt „einloggen" (kein Google, keine GIS) + Demo-Medien laden. */
+  const enterDemo = useCallback(async (): Promise<void> => {
+    if (!isDemoMode()) return;
+    sessionStorage.setItem(DEMO_FLAG, '1');
+    setGoogleError(null);
+    setGoogleStatus('ready');
     await refreshMedia();
   }, [refreshMedia]);
 
@@ -146,8 +164,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [afterToken]);
 
   // Silent-Refresh nach Reload, wenn die Gruppensperre noch aktiv ist.
+  // Im Demo-Modus: ohne Google/GIS direkt wieder ins Demo einsteigen.
   useEffect(() => {
-    if (!gateUser || !isConfigured()) return;
+    if (!gateUser) return;
+    if (isDemoMode()) {
+      // Nach Reload automatisch wieder ins Demo (Login-Seite steigt beim
+      // ersten Login selbst direkt ein — hier nur der Reload-Fall).
+      if (googleStatus !== 'ready' && sessionStorage.getItem(DEMO_FLAG) === '1') {
+        void enterDemo();
+      }
+      return;
+    }
+    if (!isConfigured()) return;
     if (getAccessToken()) return;
     let cancelled = false;
     void silentRefresh().then((token) => {
@@ -156,11 +184,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [gateUser, afterToken]);
+  }, [gateUser, afterToken, enterDemo, googleStatus]);
 
   const logout = useCallback(() => {
     signOutGoogle();
     clearSession();
+    sessionStorage.removeItem(DEMO_FLAG);
     clearBlobCache();
     setDriveToken(null);
     setGateUser(null);
@@ -172,6 +201,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const removeMedia = useCallback(
     async (id: string): Promise<boolean> => {
+      if (isDemoMode()) {
+        toast('Tryb demo: usuwanie plików jest wyłączone.', 'info');
+        return false;
+      }
       const token = getAccessToken();
       if (!token) return false;
       try {
@@ -189,7 +222,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppContextValue>(
     () => ({
-      configured: isConfigured(),
+      // Im Demo-Modus gilt die App als „konfiguriert" (keine Client-ID nötig).
+      configured: isConfigured() || isDemoMode(),
+      demoMode: isDemoMode(),
       gateUser,
       googleStatus,
       googleError,
@@ -200,6 +235,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toasts,
       gateLoginDone,
       signInGoogle,
+      enterDemo,
       logout,
       refreshMedia,
       removeMedia,
@@ -216,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toasts,
       gateLoginDone,
       signInGoogle,
+      enterDemo,
       logout,
       refreshMedia,
       removeMedia,

@@ -4,6 +4,8 @@
 export interface MediatekaConfig {
   googleClientId: string;
   driveFolderName: string;
+  /** Nur für Vorschau/Demo auf true setzen (kein Google-Login, keine Drive-API). */
+  demoMode: boolean;
 }
 
 declare global {
@@ -19,7 +21,19 @@ export function getConfig(): MediatekaConfig {
   return {
     googleClientId: (raw.googleClientId ?? '').trim(),
     driveFolderName: (raw.driveFolderName ?? 'Korea_Japonia_2026').trim() || 'Korea_Japonia_2026',
+    demoMode: raw.demoMode === true,
   };
+}
+
+/**
+ * true, wenn der Demo-Modus aktiv ist.
+ * Demo = automatischer Fallback, sobald KEINE echte Google Client ID eingetragen
+ * ist (Platzhalter in public/config.js) — die App läuft dann komplett ohne
+ * Google-Login mit Beispielbildern aus public/. Das Flag `demoMode: true` in
+ * config.js erzwingt den Demo-Modus zusätzlich auch bei eingetragener Client-ID.
+ */
+export function isDemoMode(): boolean {
+  return getConfig().demoMode || !isConfigured();
 }
 
 /** true, wenn eine echte Client-ID eingetragen ist (kein Platzhalter). */

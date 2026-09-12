@@ -1,16 +1,17 @@
 import { getConfig } from '@/config';
 
 const PLACES = [
-  'SEOUL',
-  'BUSAN',
-  'JEJU',
-  'KYOTO',
-  'TOKYO',
-  'OSAKA',
-  'NARA',
-  'GYEONGJU',
-  'HAKONE',
   'INCHEON',
+  'SEOUL',
+  'DAEJEON',
+  'BUSAN',
+  'FUKUOKA',
+  'HIROSHIMA',
+  'KOBE',
+  'OSAKA',
+  'KYOTO',
+  'NARA',
+  'TOKYO',
 ];
 
 export default function Footer() {
@@ -27,7 +28,7 @@ export default function Footer() {
         </div>
       </div>
       <p className="px-4 pb-4 text-center text-xs text-muted-foreground">
-        Mediateka grupowa · Korea &amp; Japonia 2026 · zdjęcia zapisują się w katalogu{' '}
+        Mediateka grupowa · Seul → Tokio · sierpień–wrzesień 2026 · zdjęcia zapisują się w katalogu{' '}
         <span className="text-[#A78BFA]">{getConfig().driveFolderName}</span>
       </p>
     </footer>

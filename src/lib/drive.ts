@@ -8,6 +8,9 @@
 // - deleteFile(): nur für Admin im UI
 // ============================================================================
 
+import { isDemoMode } from '@/config';
+import { USERS } from '@/lib/gate';
+
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -113,8 +116,46 @@ function mapFile(f: RawFile): DriveMedia | null {
   };
 }
 
+// --- Demo-Modus ---------------------------------------------------------------
+// Aktiv, wenn keine echte Google Client ID konfiguriert ist (automatischer
+// Fallback) oder public/config.js → demoMode: true gesetzt ist.
+// Liefert statische Beispielbilder aus public/ — KEIN Zugriff auf Google Drive,
+// keine Blob-Fetches (die Dateien werden direkt relativ eingebunden).
+
+/** Statische Demo-Dateien in public/ (kein echtes mp4 vorhanden → nur Fotos). */
+const DEMO_FILES = [
+  'demo-01.jpg',
+  'demo-02.jpg',
+  'demo-03.jpg',
+  'demo-04.jpg',
+  'demo-05.jpg',
+  'demo-06.jpg',
+  'demo-07.jpg',
+  'demo-08.jpg',
+  'demo-09.jpg',
+  'demo-10.jpg',
+];
+
+/** Baut Demo-Media-Objekte: Uploader rotiert über die 9 Benutzer,
+ *  createdTime gestaffelt über die letzten ~10 Tage (neueste zuerst). */
+function buildDemoMedia(): DriveMedia[] {
+  const base = import.meta.env.BASE_URL;
+  const now = Date.now();
+  return DEMO_FILES.map((file, i) => ({
+    id: `demo-${String(i + 1).padStart(2, '0')}`,
+    name: file,
+    mimeType: 'image/jpeg',
+    type: 'photo',
+    thumbnailLink: `${base}${file}`,
+    webContentLink: `${base}${file}`,
+    createdTime: new Date(now - i * 24 * 60 * 60 * 1000).toISOString(),
+    uploader: USERS[i % USERS.length].username,
+  }));
+}
+
 /** Findet den geteilten Ordner anhand des Namens. */
 export async function findFolder(token: string, folderName: string): Promise<string> {
+  if (isDemoMode()) return 'demo';
   const q = encodeURIComponent(
     `name='${escapeQueryValue(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
   );
@@ -137,6 +178,7 @@ const LIST_FIELDS =
 
 /** Listet Fotos & Videos im Ordner (neueste zuerst, max. 200/Seite). */
 export async function listMedia(token: string, folderId: string): Promise<DriveMedia[]> {
+  if (isDemoMode()) return buildDemoMedia();
   const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
   const out: DriveMedia[] = [];
   let pageToken: string | undefined;
@@ -180,12 +222,16 @@ export async function fetchBlobUrl(token: string, url: string, cacheKey: string)
 export function thumbUrl(media: DriveMedia): Promise<string> {
   const link = media.thumbnailLink ?? media.webContentLink;
   if (!link) return Promise.reject(new DriveError('no-thumb', 'Brak miniaturki.'));
+  // Demo-Modus: statische Datei direkt einbinden (kein Blob-Fetch).
+  if (isDemoMode()) return Promise.resolve(link);
   return fetchBlobUrl(getTokenOrThrow(), link, `${media.id}:thumb`);
 }
 
 export function fullUrl(media: DriveMedia): Promise<string> {
   const link = media.webContentLink ?? media.thumbnailLink;
   if (!link) return Promise.reject(new DriveError('no-full', 'Brak pliku.'));
+  // Demo-Modus: statische Datei direkt einbinden (kein Blob-Fetch).
+  if (isDemoMode()) return Promise.resolve(link);
   return fetchBlobUrl(getTokenOrThrow(), link, `${media.id}:full`);
 }
 
@@ -224,6 +270,11 @@ export function uploadToDrive(
   uploaderName: string,
   onProgress: (fraction: number) => void,
 ): Promise<UploadedFile> {
+  if (isDemoMode()) {
+    return Promise.reject(
+      new DriveError('demo', 'Tryb demo: wysyłanie na Google Drive jest wyłączone.'),
+    );
+  }
   return new Promise((resolve, reject) => {
     const metadata = {
       name: file.name,
@@ -293,6 +344,9 @@ export function uploadToDrive(
 
 /** Löscht eine Datei (nur Admin im UI). */
 export async function deleteFile(token: string, id: string): Promise<void> {
+  if (isDemoMode()) {
+    throw new DriveError('demo', 'Tryb demo: usuwanie plików jest wyłączone.');
+  }
   await driveFetch<undefined>(token, `${API}/files/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
