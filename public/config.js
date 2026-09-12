@@ -1,16 +1,16 @@
 // ============================================================================
 // Mediateka — Korea & Japonia 2026 · konfiguracja runtime
 // ----------------------------------------------------------------------------
-// Ten plik można zmienić bez przebudowy kodu. Po zmianie: commit + push.
+// Google OAuth NIE jest już wykonywany w przeglądarce użytkownika.
+// Użytkownik loguje się wyłącznie nazwą + hasłem Mediateki.
+// Backend (np. Google Cloud Run) posiada bezpieczne połączenie z Google Drive.
 //
-// WAŻNE: lista „Test users” NIE jest potrzebna, jeśli w Google Cloud
-// status aplikacji OAuth ustawisz na „In production / Produkcja”.
-// Użytkownicy nadal muszą jednorazowo potwierdzić dostęp Google, ponieważ
-// prywatny Google Drive nie może być bezpiecznie otwierany samym hasłem HTML.
-// Logowanie grupowe (nazwa + hasło) pozostaje pierwszym krokiem.
+// Po wdrożeniu backendu wpisz jego URL poniżej, np.:
+//   apiBaseUrl: 'https://mediateka-api-123456789.europe-west1.run.app'
 // ============================================================================
 window.MEDIATEKA_CONFIG = {
-  googleClientId: '782690034922-rmt9neomk1ivupit7kig7frilnabcj3m.apps.googleusercontent.com',
+  apiBaseUrl: 'HIER_BACKEND_URL_EINTRAGEN',
   driveFolderName: 'Korea_Japonia_2026',
   demoMode: false,
+  maxUploadBytes: 20 * 1024 * 1024 * 1024, // 20 GiB
 };

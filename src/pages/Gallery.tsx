@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { motion } from 'framer-motion';
-import { Camera, Clapperboard, Images, Loader2, Plus, RefreshCw, Users } from 'lucide-react';
+import { Camera, Clapperboard, Images, Plus, RefreshCw, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import MediaTile from '@/components/MediaTile';
 import Avatar from '@/components/Avatar';
@@ -17,10 +17,6 @@ type Filter = 'all' | 'photo' | 'video' | 'mine' | `user:${string}`;
 export default function Gallery() {
   const {
     gateUser,
-    googleStatus,
-    signInGoogle,
-    enterDemo,
-    demoMode,
     media,
     mediaLoading,
     mediaError,
@@ -67,50 +63,6 @@ export default function Gallery() {
     pullStart.current = null;
     setPulling(0);
   };
-
-  // Google noch nicht verbunden → Verbindungs-Karte (bzw. Demo-Karte)
-  if (googleStatus !== 'ready') {
-    if (demoMode) {
-      return (
-        <div className="flex flex-col items-center py-20 text-center">
-          <Seal size={56} className="animate-seal-rotate" />
-          <h2 className="font-display mt-6 text-2xl font-bold">
-            Tryb <span className="text-gradient">demo</span>
-          </h2>
-          <p className="mt-2 max-w-md text-sm text-muted-foreground">
-            Wersja demonstracyjna — Google Drive jest wyłączony, galeria pokazuje przykładowe
-            zdjęcia z aplikacji.
-          </p>
-          <button
-            onClick={() => void enterDemo()}
-            className="btn-gradient font-display mt-6 flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-[#0B0B12]"
-          >
-            Wejdź do demo
-          </button>
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col items-center py-20 text-center">
-        <Seal size={56} className="animate-seal-rotate" />
-        <h2 className="font-display mt-6 text-2xl font-bold">
-          Połącz z <span className="text-gradient">Dyskiem Google</span>
-        </h2>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Galeria czyta zdjęcia i filmy prosto z folderu Drive. Zaloguj się kontem Google, które ma
-          dostęp do folderu.
-        </p>
-        <button
-          onClick={() => void signInGoogle()}
-          disabled={googleStatus === 'signing-in'}
-          className="btn-gradient font-display mt-6 flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-[#0B0B12] disabled:opacity-60"
-        >
-          {googleStatus === 'signing-in' && <Loader2 size={16} className="animate-spin" />}
-          Zaloguj przez Google
-        </button>
-      </div>
-    );
-  }
 
   const chips: { key: Filter; label: string; icon?: React.ReactNode }[] = [
     { key: 'all', label: 'Wszystko' },

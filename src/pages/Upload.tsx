@@ -13,14 +13,13 @@ import {
   X,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import RequireGoogle from '@/components/RequireGoogle';
+import RequireSession from '@/components/RequireSession';
 import { uploadToDrive, DriveError } from '@/lib/drive';
-import { getAccessToken } from '@/lib/google';
 import { formatBytes } from '@/lib/format';
 import { getConfig } from '@/config';
 import { cn } from '@/lib/utils';
 
-const MAX_SIZE = 200 * 1024 * 1024; // 200 MB
+const MAX_SIZE = getConfig().maxUploadBytes;
 
 type ItemStatus = 'queued' | 'uploading' | 'done' | 'error';
 
@@ -37,7 +36,7 @@ interface QueueItem {
 let itemId = 0;
 
 function UploadInner() {
-  const { gateUser, folderId, refreshMedia, toast, demoMode } = useApp();
+  const { gateUser, refreshMedia, toast, demoMode } = useApp();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [doneAll, setDoneAll] = useState(false);
@@ -68,7 +67,7 @@ function UploadInner() {
           continue;
         }
         if (file.size > MAX_SIZE) {
-          toast(`${file.name} jest za duży (maks. 200 MB).`, 'error');
+          toast(`${file.name} jest za duży (maks. ${Math.round(MAX_SIZE / 1024 ** 3)} GB).`, 'error');
           continue;
         }
         accepted.push({
@@ -100,9 +99,8 @@ function UploadInner() {
     setQueue((q) => q.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   const uploadAll = async () => {
-    const token = getAccessToken();
-    if (!token || !folderId || !gateUser) {
-      toast('Brak połączenia z Google — zaloguj się ponownie.', 'error');
+    if (!gateUser) {
+      toast('Sesja wygasła — zaloguj się ponownie.', 'error');
       return;
     }
     setUploading(true);
@@ -111,7 +109,7 @@ function UploadInner() {
       if (item.status === 'done') continue;
       patchItem(item.id, { status: 'uploading', progress: 0, error: undefined });
       try {
-        await uploadToDrive(token, folderId, item.file, gateUser.username, (frac) =>
+        await uploadToDrive(item.file, gateUser.username, (frac) =>
           patchItem(item.id, { progress: frac }),
         );
         patchItem(item.id, { status: 'done', progress: 1 });
@@ -157,12 +155,12 @@ function UploadInner() {
       {demoMode ? (
         <div className="mt-4 flex items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs text-amber-200">
           <HardDriveUpload size={14} className="shrink-0" />
-          Tryb demo: wysyłanie na Google Drive będzie dostępne po konfiguracji (patrz GITHUB-SETUP.md).
+          Tryb demo: wysyłanie na Google Drive jest wyłączone.
         </div>
       ) : (
         <div className="glass mt-4 flex items-center gap-2 rounded-full px-4 py-2 text-xs text-muted-foreground">
           <HardDriveUpload size={14} className="text-[#5EEAD4]" />
-          Pliki trafiają prosto do katalogu Google Drive{' '}
+          Pliki trafiają automatycznie do katalogu Google Drive{' '}
           <span className="font-semibold text-[#A78BFA]">{getConfig().driveFolderName}</span>
         </div>
       )}
@@ -209,7 +207,7 @@ function UploadInner() {
               <div>
                 <p className="font-semibold">Wybierz zdjęcia i filmy</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  JPG · PNG · HEIC · MP4 · MOV — wiele plików naraz, maks. 200 MB / plik
+                  JPG · PNG · HEIC · MP4 · MOV — wiele plików naraz, do {Math.round(MAX_SIZE / 1024 ** 3)} GB / plik
                 </p>
               </div>
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
@@ -337,7 +335,7 @@ function UploadInner() {
             <div className="mt-10 grid gap-3 sm:grid-cols-3">
               {[
                 '💡 Możesz zaznaczyć wiele zdjęć naraz',
-                '🎬 Filmy do 200 MB na plik',
+                '🎬 Duże filmy są wysyłane w kawałkach i mogą być wznawiane',
                 '☁️ Kopie trafiają na wspólny Drive',
               ].map((t) => (
                 <div key={t} className="glass rounded-2xl px-4 py-3 text-xs text-muted-foreground">
@@ -454,8 +452,8 @@ function SuccessCard({
 
 export default function Upload() {
   return (
-    <RequireGoogle>
+    <RequireSession>
       <UploadInner />
-    </RequireGoogle>
+    </RequireSession>
   );
 }

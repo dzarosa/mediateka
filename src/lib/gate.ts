@@ -1,13 +1,8 @@
 // ============================================================================
-// Weiche Gruppensperre (client-seitig)
+// Konta Mediateki
 // ----------------------------------------------------------------------------
-// ⚠️ EHRLICHER HINWEIS / UWAGA:
-// Das ist KEINE echte Sicherheit! Die Passwörter liegen im ausgelieferten
-// JavaScript und sind für jeden sichtbar, der den Quelltext ansieht.
-// Diese Sperre ist nur ein freundlicher "Türrahmen" für die Reisegruppe.
-// Die ECHTE Zugriffskontrolle passiert über:
-//   1. das persönliche Google-Konto (OAuth-Login) und
-//   2. die Freigabe des Drive-Ordners "Korea_Japonia_2026" (nur die 9 Konten).
+// Hasła NIE znajdują się już w frontendzie. Są sprawdzane przez backend.
+// sessionStorage przechowuje tylko krótkotrwały token sesji zwrócony przez API.
 // ============================================================================
 
 export interface GateUser {
@@ -16,18 +11,12 @@ export interface GateUser {
   isAdmin: boolean;
 }
 
-export const GROUP_PASSWORD = 'Korajapan2026!!';
-export const ADMIN_PASSWORD = 'BaC2026!!';
-
-const SESSION_KEY = 'mediateka.session';
-
-interface UserDef {
-  username: string;
-  displayName: string;
-  isAdmin: boolean;
+export interface GateSession {
+  user: GateUser;
+  token: string;
 }
 
-export const USERS: UserDef[] = [
+export const USERS: GateUser[] = [
   { username: 'kasia', displayName: 'Kasia', isAdmin: false },
   { username: 'bogusia', displayName: 'Bogusia', isAdmin: false },
   { username: 'ania_p', displayName: 'Ania', isAdmin: false },
@@ -39,35 +28,34 @@ export const USERS: UserDef[] = [
   { username: 'admin', displayName: 'Admin', isAdmin: true },
 ];
 
-/** Prüft Name + Passwort. Gibt den GateUser zurück oder null. */
-export function gateLogin(username: string, password: string): GateUser | null {
-  const user = USERS.find((u) => u.username === username);
-  if (!user) return null;
-  const ok = user.isAdmin ? password === ADMIN_PASSWORD : password === GROUP_PASSWORD;
-  return ok ? { ...user } : null;
-}
+const SESSION_KEY = 'mediateka.backend-session';
 
-export function getSession(): GateUser | null {
+export function getSession(): GateSession | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as GateUser;
-    if (!USERS.some((u) => u.username === parsed.username)) return null;
-    return parsed;
+    const parsed = JSON.parse(raw) as GateSession;
+    if (!parsed?.token || !parsed?.user?.username) return null;
+    const known = USERS.find((u) => u.username === parsed.user.username);
+    if (!known) return null;
+    return { user: { ...known }, token: parsed.token };
   } catch {
     return null;
   }
 }
 
-export function saveSession(user: GateUser): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+export function saveSession(session: GateSession): void {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
 export function clearSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
-/** Avatar-Asset-Pfad (prozedural generiert, liegt in public/). */
+export function getSessionToken(): string | null {
+  return getSession()?.token ?? null;
+}
+
 export function avatarUrl(username: string): string {
   return `${import.meta.env.BASE_URL}avatar-${username}.png`;
 }

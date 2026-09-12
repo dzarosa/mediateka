@@ -1,50 +1,82 @@
 # Mediateka — Seul → Tokio, sierpień–wrzesień 2026
 
-Statische Gruppen-Mediathek (Fotos & Videos) für 9 Reisefreunde. **Kein Server, keine
-Datenbank** — die App läuft komplett im Browser auf **GitHub Pages** und spricht direkt mit der
-**Google Drive API**. Alle Uploads landen im geteilten Drive-Ordner `Korea_Japonia_2026`.
+Wspólna galeria zdjęć i filmów dla 9 uczestników wyjazdu. Frontend jest publikowany na **GitHub Pages**, natomiast prywatny dostęp do **Google Drive** obsługuje mały backend w katalogu `server/`.
 
-## Tech-Stack
+## Co zmieniło się w tej wersji
 
-Node 22 · Vite 7 · React 19 + TypeScript · Tailwind CSS 3.4 · framer-motion · lucide-react ·
-HashRouter (GitHub Pages hat kein SPA-Fallback) · `base: './'` (relative Pfade)
+- uczestnicy logują się **tylko nazwą użytkownika + hasłem Mediateki**;
+- nie ma przycisku „Zaloguj przez Google” i uczestnicy nie muszą być Google **Test users**;
+- hasła nie znajdują się już w HTML/JavaScript — są zmiennymi środowiskowymi backendu;
+- tylko właściciel galerii wykonuje **jednorazową** autoryzację Google przy konfiguracji backendu;
+- duże filmy są wysyłane przez **Google Drive resumable upload** w kawałkach (domyślny limit aplikacji: 20 GiB na plik);
+- prywatne zdjęcia i filmy są odczytywane przez krótkotrwałe, podpisane URL-e backendu;
+- naprawiono GitHub Actions `npm ci`: `.npmrc`, workflow i `package-lock.json` używają oficjalnego `https://registry.npmjs.org/`.
 
-## Lokale Entwicklung
+Oryginalne zdjęcie strony logowania `public/login-hero.jpg` zostało zachowane.
+
+## Architektura
+
+```text
+Użytkownik
+   │
+   │ login + hasło Mediateki
+   ▼
+GitHub Pages (React)
+   │
+   │ token sesji Mediateki
+   ▼
+Backend (np. Google Cloud Run)
+   │
+   │ refresh token tylko właściciela
+   ▼
+Google Drive / Korea_Japonia_2026
+```
+
+Frontend nigdy nie otrzymuje `GOOGLE_CLIENT_SECRET` ani `GOOGLE_REFRESH_TOKEN`.
+
+## Frontend
 
 ```bash
 npm ci
-npm run dev      # Dev-Server
-npm run check    # TypeScript-Check
-npm run build    # Produktions-Build nach dist/
+npm run dev
+npm run check
+npm run build
 ```
 
-## Konfiguration (ohne Neu-Build)
+Runtime config: `public/config.js`.
 
-`public/config.js` enthält:
+Po wdrożeniu backendu wystarczy wpisać:
 
 ```js
 window.MEDIATEKA_CONFIG = {
-  googleClientId: '…apps.googleusercontent.com',   // Google OAuth Client ID (Webanwendung)
-  driveFolderName: 'Korea_Japonia_2026',           // Name des geteilten Drive-Ordners
+  apiBaseUrl: 'https://TWÓJ-BACKEND.run.app',
+  driveFolderName: 'Korea_Japonia_2026',
+  demoMode: false,
+  maxUploadBytes: 20 * 1024 * 1024 * 1024,
 };
 ```
 
-Solange keine echte Client-ID eingetragen ist, zeigt die App einen eleganten
-„Setup erforderlich"-Screen. **Ausführliche Anleitung: [GITHUB-SETUP.md](GITHUB-SETUP.md).**
+## Backend
 
-## Anmelde-Ablauf
+Backend jest celowo bardzo mały i używa wyłącznie modułów wbudowanych w Node.js — nie ma dodatkowych zależności npm.
 
-1. **Login w Mediatece** — wybór użytkownika + hasło grupowe.
-2. **Autoryzacja Google Drive** (OAuth 2.0) — Google wymaga jej dla prywatnego Dysku.
-   Nie trzeba używać listy „Test users”: w Google Cloud ustaw status aplikacji OAuth na
-   **In production / Produkcja**. Uczestnicy nadal muszą jednorazowo zatwierdzić dostęp Google.
+Najważniejsze endpointy:
 
-Ważne: samo hasło zapisane w statycznym HTML/JavaScript nie może bezpiecznie zastąpić
-autoryzacji Google Drive. Do wariantu „wyłącznie login + hasło, bez okna Google” potrzebny
-byłby osobny backend przechowujący poświadczenia Google po stronie serwera.
+- `POST /api/login` — weryfikacja loginu i hasła Mediateki;
+- `GET /api/media` — lista zdjęć/filmów;
+- `POST /api/uploads/session` — utworzenie resumable upload session do Google Drive;
+- `GET /api/media/:id/thumb` — prywatna miniatura przez podpisany link;
+- `GET /api/media/:id/content` — prywatne zdjęcie / streaming filmu z obsługą HTTP Range;
+- `DELETE /api/media/:id` — tylko Admin.
 
-## Deployment
+Konfigurację backendu opisuje `server/.env.example` i szczegółowo `GITHUB-SETUP.md`.
 
-GitHub Actions Workflow `.github/workflows/deploy.yml`: `npm ci && npm run build` → `dist/`
-wird via `actions/upload-pages-artifact` + `deploy-pages` veröffentlicht. In den Repo-Settings:
-**Pages → Source: GitHub Actions**.
+## Ważne po poprzedniej wersji
+
+W starej wersji hasło grupowe i hasło Admina były zapisane w kodzie frontendu. Jeżeli repozytorium było już publiczne, potraktuj tamte hasła jako ujawnione i ustaw **nowe** wartości `GROUP_PASSWORD` oraz `ADMIN_PASSWORD` w backendzie.
+
+## Deployment GitHub Pages
+
+Workflow `.github/workflows/deploy.yml` wykonuje `npm ci` + `npm run build` i publikuje `dist/` przez GitHub Pages. W repozytorium ustaw **Settings → Pages → Source: GitHub Actions**.
+
+Pełna instrukcja: **`GITHUB-SETUP.md`**.

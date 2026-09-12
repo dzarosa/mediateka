@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Clapperboard, Crown, TrendingUp } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import RequireGoogle from '@/components/RequireGoogle';
+import RequireSession from '@/components/RequireSession';
 import Avatar from '@/components/Avatar';
 import { formatBytes, formatUploader } from '@/lib/format';
 
@@ -224,8 +224,8 @@ function Donut({ fraction }: { fraction: number }) {
 
 export default function Stats() {
   return (
-    <RequireGoogle>
+    <RequireSession>
       <StatsInner />
-    </RequireGoogle>
+    </RequireSession>
   );
 }

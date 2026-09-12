@@ -1,11 +1,11 @@
-// Liest die Runtime-Konfiguration aus public/config.js (window.MEDIATEKA_CONFIG).
-// Typsicher, mit Fallbacks und Erkennung des Platzhalter-Zustands.
-
 export interface MediatekaConfig {
-  googleClientId: string;
+  /** Publiczny adres backendu, bez końcowego ukośnika. */
+  apiBaseUrl: string;
   driveFolderName: string;
-  /** Nur für Vorschau/Demo auf true setzen (kein Google-Login, keine Drive-API). */
+  /** Opcjonalny tryb demonstracyjny bez backendu. */
   demoMode: boolean;
+  /** Limit po stronie UI; backend sprawdza limit ponownie. */
+  maxUploadBytes: number;
 }
 
 declare global {
@@ -14,34 +14,28 @@ declare global {
   }
 }
 
-const PLACEHOLDER = 'HIER_GOOGLE_CLIENT_ID_EINTRAGEN';
+const PLACEHOLDERS = ['HIER_BACKEND_URL_EINTRAGEN', 'YOUR_BACKEND_URL', 'TU_WPISZ_BACKEND'];
 
 export function getConfig(): MediatekaConfig {
   const raw = window.MEDIATEKA_CONFIG ?? {};
   return {
-    googleClientId: (raw.googleClientId ?? '').trim(),
+    apiBaseUrl: (raw.apiBaseUrl ?? '').trim().replace(/\/$/, ''),
     driveFolderName: (raw.driveFolderName ?? 'Korea_Japonia_2026').trim() || 'Korea_Japonia_2026',
     demoMode: raw.demoMode === true,
+    maxUploadBytes:
+      typeof raw.maxUploadBytes === 'number' && raw.maxUploadBytes > 0
+        ? raw.maxUploadBytes
+        : 20 * 1024 * 1024 * 1024,
   };
 }
 
-/**
- * true, wenn der Demo-Modus aktiv ist.
- * Demo = automatischer Fallback, sobald KEINE echte Google Client ID eingetragen
- * ist (Platzhalter in public/config.js) — die App läuft dann komplett ohne
- * Google-Login mit Beispielbildern aus public/. Das Flag `demoMode: true` in
- * config.js erzwingt den Demo-Modus zusätzlich auch bei eingetragener Client-ID.
- */
 export function isDemoMode(): boolean {
-  return getConfig().demoMode || !isConfigured();
+  return getConfig().demoMode;
 }
 
-/** true, wenn eine echte Client-ID eingetragen ist (kein Platzhalter). */
 export function isConfigured(): boolean {
-  const { googleClientId } = getConfig();
-  return (
-    googleClientId.length > 0 &&
-    !googleClientId.includes(PLACEHOLDER) &&
-    googleClientId.endsWith('.apps.googleusercontent.com')
-  );
+  const { apiBaseUrl } = getConfig();
+  if (!apiBaseUrl) return false;
+  if (PLACEHOLDERS.some((p) => apiBaseUrl.includes(p))) return false;
+  return /^https?:\/\//i.test(apiBaseUrl);
 }

@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import RequireGoogle from '@/components/RequireGoogle';
+import RequireSession from '@/components/RequireSession';
 import Avatar from '@/components/Avatar';
 import { fullUrl, type DriveMedia } from '@/lib/drive';
 import { formatBytes, formatDate, formatDuration, formatUploader } from '@/lib/format';
@@ -174,14 +174,14 @@ function DetailInner() {
           <div className="mt-5 flex flex-col gap-2">
             {blobUrl && item && (
               <a
-                href={blobUrl}
+                href={item.downloadLink ?? blobUrl}
                 download={item.name}
                 className="btn-gradient font-display flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold text-[#0B0B12]"
               >
                 <Download size={15} /> Pobierz
               </a>
             )}
-            {item?.webViewLink && (
+            {gateUser?.isAdmin && item?.webViewLink && (
               <a
                 href={item.webViewLink}
                 target="_blank"
@@ -243,8 +243,8 @@ function MetaRow({ label, value }: { label: string; value?: string }) {
 
 export default function MediaDetail() {
   return (
-    <RequireGoogle>
+    <RequireSession>
       <DetailInner />
-    </RequireGoogle>
+    </RequireSession>
   );
 }

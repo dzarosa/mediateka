@@ -1,147 +1,254 @@
-# Setup-Anleitung: Mediateka — Seul → Tokio, sierpień–wrzesień 2026
+# Mediateka 2026 — konfiguracja bez logowania Google dla uczestników
 
-Schritt für Schritt, auch ohne Programmier-Erfahrung machbar. Am Ende läuft die App auf
-**GitHub Pages** und alle Fotos/Videos landen im geteilten **Google-Drive-Ordner**
-`Korea_Japonia_2026`.
+Ta wersja działa w układzie:
 
-**Wichtig:** Die App funktioniert **sofort** nach Schritt 1+2 — mit Gruppen-Passwort und
-**Beispielbildern (Demo-Modus)**. Google Drive (Schritte 3–5) ist ein **optionaler** Zusatz,
-den du später nachrüsten kannst. Ohne Client-ID läuft die App automatisch im Demo-Modus:
-Galerie zeigt die mitgelieferten Beispielfotos, Upload/Delete sind deaktiviert.
+**login Mediateki → galeria → automatyczny zapis na Google Drive**
 
-**Was du brauchst:** einen GitHub-Account, ca. 10 Minuten (für den optionalen
-Drive-Anschluss zusätzlich ein Google-Konto und ca. 10 Minuten).
+Uczestnicy **nie logują się do Google**. Nie trzeba dodawać Kasi, Ani, Staszka itd. jako Google „Test users”. Google OAuth wykonuje tylko właściciel galerii **jednorazowo podczas konfiguracji backendu**.
+
+> Ważne: frontend jest nadal na GitHub Pages, ale sekrety i prawdziwa kontrola hasła są w `server/`, który trzeba wdrożyć np. do Google Cloud Run.
 
 ---
 
-## Login (Logowanie) — Passwörter
+## 1. GitHub Pages
 
-> **Ważne:** na statycznym GitHub Pages nie da się zalogować do prywatnego Google Drive
-> wyłącznie własnym loginem i hasłem z HTML. Google wymaga OAuth. W tej wersji uczestnicy
-> logują się najpierw nazwą + hasłem Mediateki, a Google OAuth działa bez listy Test users,
-> gdy aplikacja jest ustawiona na **In production / Produkcja**.
+Repozytorium zawiera gotowy workflow `.github/workflows/deploy.yml`.
 
-- **Gruppe (alle außer Admin):** `Korajapan2026!!`
-- **Admin:** `BaC2026!!`
+1. Wgraj całą zawartość paczki do repozytorium GitHub (bez `node_modules`).
+2. Otwórz **Settings → Pages**.
+3. Ustaw **Source → GitHub Actions**.
+4. Po pushu sprawdź zakładkę **Actions**.
 
-Do Mediateki logujesz się nazwą użytkownika + hasłem. Ponieważ w tej paczce jest już
-wpisana prawdziwa Google Client ID, po tym logowaniu pojawi się jednorazowa autoryzacja
-Google Drive. Nie trzeba dodawać uczestników jako Test users, jeśli aplikacja OAuth ma status
-**In production / Produkcja**. Bez Client ID aplikacja przechodzi wyłącznie w tryb demo.
+Błąd ze screena:
 
-## Schritt 1 — GitHub-Repo anlegen & Code hochladen
+```text
+getaddrinfo ENOTFOUND npm.mirrors.msh.team
+```
 
-1. Auf <https://github.com/new> ein neues Repository erstellen, z. B. Name: `mediateka`
-   (Public oder Private ist egal — GitHub Pages funktioniert bei beiden; bei Private nur mit
-   GitHub Pro/Team bzw. öffentlichem Repo bei Free).
-2. Den Code hochladen — zwei einfache Wege:
-   - **Per Kommandozeile** (im Projektordner):
-     ```bash
-     git init -b main
-     git add -A
-     git commit -m "Mediateka — Seul → Tokio 2026"
-     git remote add origin https://github.com/<DEIN-USER>/mediateka.git
-     git push -u origin main
-     ```
-   - **Per Web-Oberfläche:** Repo öffnen → „Add file" → „Upload files" → alle Dateien &
-     Ordner hineinziehen (außer `node_modules/` und `dist/`).
-
-Ein Deployment-Workflow (`.github/workflows/deploy.yml`) ist **bereits dabei** — er baut die
-App bei jedem Push automatisch (`npm ci && npm run build`) und veröffentlicht `dist/` auf
-GitHub Pages. Du musst **nicht** lokal `npm run build` ausführen.
-
-## Schritt 2 — GitHub Pages aktivieren
-
-1. Im Repo: **Settings → Pages**.
-2. Bei **Source**: **„GitHub Actions"** auswählen (nicht „Deploy from a branch").
-3. Nach dem nächsten Push läuft der Workflow **„Deploy to GitHub Pages"** (Tab „Actions").
-   Wenn er grün ist, ist die App unter `https://<DEIN-USER>.github.io/mediateka/` erreichbar.
-
-> Die App ist für diesen Unterpfad vorbereitet (relative Pfade `base: './'` + Hash-Routing) —
-> es funktioniert auch ohne eigene Domain.
-
-**Ab hier läuft die App bereits** — mit Passwort-Login und Demo-Bildern. Die folgenden
-Schritte 3–5 schalten zusätzlich den echten Google-Drive-Speicher frei.
-
-## Schritt 3 (optional) — Google Cloud: Drive API + OAuth-Client einrichten
-
-1. Öffne <https://console.cloud.google.com/> und erstelle oben links ein **neues Projekt**,
-   z. B. `Mediateka 2026`.
-2. **APIs & Dienste → Bibliothek** → suche **„Google Drive API"** → **Aktivieren**.
-3. **APIs & Dienste → OAuth-Zustimmungsbildschirm**:
-   - Typ: **Extern** → „Erstellen".
-   - App-Name z. B. `Mediateka Seul Tokio 2026`, deine E-Mail als Support-/Kontaktadresse.
-   - Scopes kannst du überspringen (die App fragt sie beim Login direkt ab).
-   - **Keine Test-User-Liste verwenden:** Öffne in der Google Auth Platform den Bereich
-     **Audience / Zielgruppe** und stelle den Veröffentlichungsstatus auf
-     **In production / Produkcja** („Publish app"). Dadurch müssen die 9 Teilnehmer nicht
-     einzeln als Testnutzer eingetragen werden.
-4. **APIs & Dienste → Anmeldedaten → „Anmeldedaten erstellen" → „OAuth-Client-ID"**:
-   - Anwendungstyp: **Webanwendung**, Name z. B. `Mediateka GitHub Pages`.
-   - **Autorisierte JavaScript-Ursprünge:** `https://<DEIN-USER>.github.io`
-     (genau so, ohne `/mediateka` und ohne Slash am Ende).
-   - „Erstellen" → **Client-ID kopieren** (endet auf `…apps.googleusercontent.com`).
-
-> Weitere Hintergründe zur Drive-Einrichtung: siehe `GOOGLE-DRIVE-SETUP.md` (falls im Repo)
-> bzw. die Hinweise im Admin-Panel der App.
-
-## Schritt 4 (optional) — Client-ID in `public/config.js` eintragen
-
-1. Im Repo die Datei **`public/config.js`** öffnen (Stift-Symbol → „Edit").
-2. Den Platzhalter durch deine Client-ID ersetzen:
-   ```js
-   window.MEDIATEKA_CONFIG = {
-     googleClientId: '1234567890-abcdef.apps.googleusercontent.com',
-     driveFolderName: 'Korea_Japonia_2026',
-   };
-   ```
-3. **Commit changes** → der Workflow baut automatisch neu → nach ca. 1–2 Minuten ist die
-   Änderung live. Der Demo-Modus schaltet sich automatisch ab, sobald eine echte
-   Client-ID eingetragen ist.
-
-## Schritt 5 (optional) — Drive-Ordner anlegen & teilen
-
-1. In deinem Google Drive: **Neu → Ordner** → Name exakt: **`Korea_Japonia_2026`**
-   (Unterstriche, Groß-/Kleinschreibung beachten — oder den Namen in `config.js` anpassen).
-2. Rechtsklick auf den Ordner → **Teilen** → die **9 Google-Konten** der Gruppe eintragen,
-   Rolle: **„Bearbeiter"** (damit alle hochladen können). Alternativ: Link-Freigabe
-   „Jeder mit dem Link → Bearbeiter" (weniger fein kontrollierbar).
-
-## Schritt 6 — Erster Login
-
-1. App öffnen: `https://<DEIN-USER>.github.io/mediateka/`
-2. **Schritt 1 (Gruppensperre):** eigenen Namen antippen + Passwort eingeben
-   (Gruppe: `Korajapan2026!!`, Admin: `BaC2026!!`).
-3. **Ohne konfigurierte Client-ID:** fertig — die App zeigt sofort die Demo-Galerie
-   (Beispielbilder, Badge „DEMO" oben).
-4. **Mit konfigurierter Client-ID — Schritt 2 (Google):** „Zaloguj przez Google" →
-   dein Google-Konto wählen.
-   - Beim ersten Mal zeigt Google den Zustimmungsdialog für den Drive-Zugriff.
-   - Die App sollte vorher auf **In production / Produkcja** gestellt werden; dadurch ist
-     keine Liste mit Testnutzern notwendig.
-   - Fertig — hochgeladene Dateien erscheinen im Ordner `Korea_Japonia_2026`.
+jest w tej paczce naprawiony: npm jest wymuszony na `https://registry.npmjs.org/`.
 
 ---
 
-## ⚠️ Ehrlichkeits-Hinweis: Sicherheit
+## 2. Google Cloud — Drive API
 
-- Die **Passwort-Sperre ist rein client-seitig** — die Passwörter stehen im
-  ausgelieferten JavaScript und sind **keine echte Sicherheit**. Sie hält nur neugierige
-  Zufallsbesucher:innen höflich draußen.
-- Die **echte Kontrolle** ist das Google-Konto + die Ordner-Freigabe: Ohne eingeloggtes,
-  freigegebenes Google-Konto kann niemand echte Dateien sehen oder hochladen — egal, ob
-  jemand das Gruppen-Passwort kennt. (Im Demo-Modus sieht man nur die öffentlichen
-  Beispielbilder.)
-- Wer ein Konto aus der Gruppe entfernen will: die Ordner-Freigabe in Drive aufheben.
+Utwórz albo użyj projektu Google Cloud.
 
-## Fehlersuche
+1. **APIs & Services → Library → Google Drive API → Enable**.
+2. Skonfiguruj **Google Auth Platform / OAuth consent screen**.
+3. Dla stabilnego refresh tokenu ustaw publikację aplikacji na **In production / Produkcja**.
+4. Utwórz OAuth Client typu **Web application**, np. `Mediateka Backend`.
+5. Dodaj **Authorized redirect URI**:
 
-| Problem | Lösung |
+```text
+http://localhost:53682/oauth2callback
+```
+
+Zapisz:
+
+- `Client ID`
+- `Client secret`
+
+Używany scope to tylko:
+
+```text
+https://www.googleapis.com/auth/drive.file
+```
+
+Dzięki temu backend pracuje tylko z plikami utworzonymi przez tę aplikację, zamiast otrzymywać szeroki dostęp do całego Dysku.
+
+---
+
+## 3. Jednorazowe połączenie właściciela z Google Drive
+
+Na swoim komputerze otwórz PowerShell w katalogu projektu:
+
+```powershell
+cd server
+$env:GOOGLE_CLIENT_ID="TU_CLIENT_ID.apps.googleusercontent.com"
+$env:GOOGLE_CLIENT_SECRET="TU_CLIENT_SECRET"
+npm run auth:google
+```
+
+Skrypt wypisze link. Otwórz go w przeglądarce i zaloguj się **kontem Google właściciela galerii**.
+
+Po zgodzie skrypt:
+
+- utworzy (lub znajdzie dostępny dla aplikacji) folder `Korea_Japonia_2026`,
+- wypisze `GOOGLE_REFRESH_TOKEN`,
+- wypisze `DRIVE_FOLDER_ID`.
+
+Skopiuj te dwie wartości w bezpieczne miejsce. **Nie commituj refresh tokenu do GitHub.**
+
+---
+
+## 4. Backend — zmienne środowiskowe
+
+Wzór znajduje się w `server/.env.example`.
+
+W Cloud Run ustaw co najmniej:
+
+```text
+ALLOWED_ORIGINS=https://TWOJ-USER.github.io
+GROUP_PASSWORD=NOWE_HASLO_DLA_GRUPY
+ADMIN_PASSWORD=NOWE_HASLO_ADMINA
+AUTH_SECRET=DLUGI_LOSOWY_SEKRET_1
+MEDIA_SIGNING_SECRET=DLUGI_LOSOWY_SEKRET_2
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REFRESH_TOKEN=...
+DRIVE_FOLDER_ID=...
+DRIVE_FOLDER_NAME=Korea_Japonia_2026
+MAX_UPLOAD_BYTES=21474836480
+SESSION_HOURS=24
+MEDIA_URL_HOURS=24
+```
+
+`ALLOWED_ORIGINS` to **origin**, bez nazwy repozytorium. Jeżeli strona jest pod:
+
+```text
+https://dariusz.github.io/mediateka/
+```
+
+to wpisujesz:
+
+```text
+https://dariusz.github.io
+```
+
+Dla kilku originów rozdziel je przecinkami.
+
+### Losowe sekrety w PowerShell
+
+Możesz wygenerować je np. tak:
+
+```powershell
+-join ((1..48) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+```
+
+Uruchom polecenie dwa razy — osobno dla `AUTH_SECRET` i `MEDIA_SIGNING_SECRET`.
+
+> Ponieważ wcześniejsza wersja aplikacji miała hasła w frontendzie, ustaw teraz **nowe** `GROUP_PASSWORD` i `ADMIN_PASSWORD`.
+
+---
+
+## 5. Wdrożenie `server/` do Google Cloud Run
+
+Backend ma własny `Dockerfile` i nie potrzebuje dodatkowych paczek npm.
+
+Najprościej z Google Cloud SDK:
+
+```powershell
+cd server
+gcloud run deploy mediateka-api --source . --region europe-west1 --allow-unauthenticated
+```
+
+Po pierwszym wdrożeniu w Google Cloud Console otwórz:
+
+**Cloud Run → mediateka-api → Edit & deploy new revision → Variables & Secrets**
+
+i wpisz zmienne z punktu 4.
+
+Cloud Run musi mieć **Allow unauthenticated**, ponieważ stronę logowania musi dać się wywołać z przeglądarki. Dane galerii i operacje na Drive są mimo tego chronione własnym tokenem sesji Mediateki, a pliki otrzymują czasowo podpisane URL-e.
+
+Po wdrożeniu otrzymasz adres podobny do:
+
+```text
+https://mediateka-api-xxxxxxxxxx-ew.a.run.app
+```
+
+Sprawdzenie:
+
+```text
+https://TWÓJ-BACKEND/health
+```
+
+Powinno zwrócić `"ok": true`.
+
+---
+
+## 6. Połącz GitHub Pages z backendem
+
+Edytuj:
+
+```text
+public/config.js
+```
+
+oraz wpisz URL Cloud Run:
+
+```js
+window.MEDIATEKA_CONFIG = {
+  apiBaseUrl: 'https://mediateka-api-xxxxxxxxxx-ew.a.run.app',
+  driveFolderName: 'Korea_Japonia_2026',
+  demoMode: false,
+  maxUploadBytes: 20 * 1024 * 1024 * 1024,
+};
+```
+
+Commit + push. GitHub Actions przebuduje stronę.
+
+---
+
+## 7. Logowanie użytkowników
+
+Na stronie pozostają te same nazwy użytkowników:
+
+- Kasia
+- Bogusia
+- Ania
+- Robert
+- Hubert
+- Maria
+- Staszek
+- Klaudia
+- Admin
+
+Dla wszystkich poza Adminem backend sprawdza `GROUP_PASSWORD`. Admin używa `ADMIN_PASSWORD`.
+
+Po poprawnym logowaniu użytkownik przechodzi **od razu do galerii**. Nie ma drugiego ekranu Google.
+
+---
+
+## 8. Duże filmy
+
+Ta wersja nie używa starego uploadu `multipart` 200 MB. Backend otwiera Google **resumable upload session**, a przeglądarka wysyła plik w kawałkach po 8 MiB bezpośrednio do Google Drive.
+
+Domyślny limit aplikacji to 20 GiB na plik. Możesz go zmienić w dwóch miejscach:
+
+- backend: `MAX_UPLOAD_BYTES`,
+- frontend: `public/config.js → maxUploadBytes`.
+
+W razie chwilowego problemu sieciowego klient próbuje sprawdzić stan sesji i kontynuować upload zamiast zaczynać cały film od zera.
+
+---
+
+## 9. Prywatność plików
+
+Pliki w Google Drive nie muszą być ustawione jako „Anyone with the link”. Backend czyta prywatne pliki przy użyciu refresh tokenu właściciela i udostępnia je stronie przez podpisane, czasowe URL-e.
+
+Dla filmów endpoint obsługuje nagłówek `Range`, więc przeglądarka może przewijać i streamować dłuższy film bez pobierania go najpierw w całości do pamięci.
+
+---
+
+## 10. Najczęstsze problemy
+
+| Problem | Rozwiązanie |
 |---|---|
-| App zeigt Demo-Bilder + Badge „DEMO" | Gewollt, solange keine echte Client-ID eingetragen ist → optional Schritt 4 |
-| GitHub Action `npm ci` → `ENOTFOUND npm.mirrors.msh.team` | Behoben: `.npmrc`, Workflow und `package-lock.json` verwenden jetzt `https://registry.npmjs.org/` |
-| „Error 400: origin_mismatch" beim Google-Login | JavaScript-Ursprung falsch → Schritt 3.4, exakt `https://<user>.github.io` |
-| „Access blocked / App ist im Testmodus" | Google Auth Platform → Audience → **Publish app / In production** → Schritt 3.3 |
-| „Nie znaleziono folderu" im UI | Ordner heißt anders oder ist dem Konto nicht geteilt → Schritt 5 |
-| Upload schlägt fehl (403) | Freigabe nur „Betrachter" → Rolle auf „Bearbeiter" ändern |
-| Seite zeigt 404 nach Reload | Normal wäre das ohne Hash-Routing — die App nutzt `/#/…`; Repo-Name in der URL prüfen |
+| GitHub Action: `ENOTFOUND npm.mirrors.msh.team` | Ta paczka ma już oficjalny registry npm w `.npmrc`, workflow i lockfile. |
+| Strona pokazuje „Brak adresu Backend API” | Wpisz URL Cloud Run w `public/config.js`. |
+| `health` pokazuje `ok:false` | W Cloud Run brakuje którejś wymaganej zmiennej środowiskowej. |
+| Login zwraca 403 / CORS | `ALLOWED_ORIGINS` musi być dokładnie originem GitHub Pages, np. `https://user.github.io`. |
+| Login działa, ale Drive zwraca błąd | Sprawdź `GOOGLE_REFRESH_TOKEN`, `DRIVE_FOLDER_ID` oraz czy Drive API jest włączone. |
+| Refresh token przestaje działać po kilku dniach | Ustaw OAuth app na **In production / Produkcja** i wygeneruj refresh token ponownie. |
+| Film nie ma jeszcze miniatury | Google może przez chwilę przetwarzać film; strona pokaże tymczasową planszę. |
+| Repo było wcześniej publiczne | Zmień stare hasła grupowe i admina — wcześniej były zapisane w frontendzie. |
+
+---
+
+## Co jest chronione gdzie
+
+- **GitHub Pages:** tylko interfejs, nazwy użytkowników i publiczne assety.
+- **Cloud Run:** hasła, sesje, Google OAuth refresh token, podpisy URL-i.
+- **Google Drive:** prywatne oryginalne zdjęcia i filmy.
+
+Uczestnik nie musi znać ani posiadać konta Google użytego przez backend.

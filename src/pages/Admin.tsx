@@ -14,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import RequireGoogle from '@/components/RequireGoogle';
+import RequireSession from '@/components/RequireSession';
 import Avatar from '@/components/Avatar';
 import MediaTile from '@/components/MediaTile';
 import { getConfig } from '@/config';
@@ -162,23 +162,15 @@ function AdminInner() {
               <Row label="Folder Drive" value={getConfig().driveFolderName} />
               <Row label="ID folderu" value={folderId ?? '—'} mono />
               <Row label="Liczba plików" value={String(items.length)} />
-              <Row
-                label="Google Client ID"
-                value={
-                  getConfig().googleClientId.includes('HIER_GOOGLE')
-                    ? '⚠️ Platzhalter — siehe GITHUB-SETUP.md'
-                    : `…${getConfig().googleClientId.slice(-24)}`
-                }
-                mono
-              />
+              <Row label="Backend API" value={getConfig().apiBaseUrl} mono />
             </dl>
           </div>
           <div className="glass rounded-2xl p-5 text-sm leading-relaxed text-muted-foreground">
             <p>
-              <strong className="text-foreground">Konfiguration ohne Neu-Build:</strong> die Datei{' '}
+              <strong className="text-foreground">Konfiguracja bez zmiany kodu:</strong> plik{' '}
               <code className="rounded bg-white/10 px-1 text-[#5EEAD4]">public/config.js</code>{' '}
-              enthält Client-ID und Ordnernamen. Nach dem Ändern einfach committen &amp; pushen —
-              GitHub Actions baut und veröffentlicht automatisch neu.
+              zawiera adres backendu i nazwę folderu. Sekrety Google oraz hasła znajdują się wyłącznie
+              w zmiennych środowiskowych backendu, nigdy w GitHub Pages.
             </p>
             <p className="mt-2">
               Hinweise zur Einrichtung: <code className="rounded bg-white/10 px-1">GITHUB-SETUP.md</code>{' '}
@@ -204,8 +196,8 @@ export default function Admin() {
   const { gateUser } = useApp();
   if (!gateUser?.isAdmin) return <Navigate to="/" replace />;
   return (
-    <RequireGoogle>
+    <RequireSession>
       <AdminInner />
-    </RequireGoogle>
+    </RequireSession>
   );
 }
