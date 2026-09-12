@@ -17,7 +17,7 @@ window.MEDIATEKA_CONFIG = {
   // TODO: eigene Google OAuth Client ID eintragen, z. B.
   // '1234567890-abcdefgh.apps.googleusercontent.com'
   // Solange hier der Platzhalter steht, läuft die App automatisch im Demo-Modus.
-  googleClientId: '782690034922-rmt9neomk1ivupit7kig7frilnabcj3m.apps.googleusercontent.com',
+  googleClientId: 'HIER_GOOGLE_CLIENT_ID_EINTRAGEN.apps.googleusercontent.com',
 
   // Name des geteilten Google-Drive-Ordners (muss exakt so heißen)
   driveFolderName: 'Korea_Japonia_2026',
