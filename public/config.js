@@ -9,8 +9,8 @@
 //   apiBaseUrl: 'https://mediateka-api-123456789.europe-west1.run.app'
 // ============================================================================
 window.MEDIATEKA_CONFIG = {
-  apiBaseUrl: 'HIER_BACKEND_URL_EINTRAGEN',
+  apiBaseUrl: 'https://mediateka-api-782690034922.europe-west1.run.app',
   driveFolderName: 'Korea_Japonia_2026',
   demoMode: false,
-  maxUploadBytes: 20 * 1024 * 1024 * 1024, // 20 GiB
+  maxUploadBytes: 20 * 1024 * 1024 * 1024,
 };
