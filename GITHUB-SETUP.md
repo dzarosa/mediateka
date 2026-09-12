@@ -252,3 +252,12 @@ Dla filmów endpoint obsługuje nagłówek `Range`, więc przeglądarka może pr
 - **Google Drive:** prywatne oryginalne zdjęcia i filmy.
 
 Uczestnik nie musi znać ani posiadać konta Google użytego przez backend.
+
+## Jeśli repozytorium zawiera pliki ze starej wersji OAuth
+
+Starsza wersja Mediateki miała pliki `src/components/RequireGoogle.tsx` i
+`src/lib/google.ts`. Nowa wersja nie korzysta już z logowania Google w
+przeglądarce. Paczka zawiera neutralne pliki zgodności, a workflow GitHub
+Actions dodatkowo usuwa te dwa stare moduły przed kompilacją. Dzięki temu
+pozostałości po wcześniejszej wersji repozytorium nie powodują błędów
+TypeScript `googleStatus`, `signInGoogle`, `enterDemo` ani `googleClientId`.
