@@ -1,0 +1,20 @@
+MEDIATEKA 2026 — BACKEND CHECKLIST
+
+[ ] Project ID: mediateka-2026
+[ ] Drive API enabled
+[ ] OAuth Audience configured
+[ ] Test user (while Testing): reisekoreajapan2026@gmail.com
+[ ] Scope: https://www.googleapis.com/auth/drive.file
+[ ] OAuth Client: existing "Mediateka"
+[ ] Redirect URI: http://localhost:53682/oauth2callback
+[ ] Fresh Client Secret created and NOT stored in GitHub
+[ ] npm run auth:google completed with reisekoreajapan2026@gmail.com
+[ ] GOOGLE_REFRESH_TOKEN stored in Secret Manager
+[ ] DRIVE_FOLDER_ID saved
+[ ] Cloud Run service: mediateka-api
+[ ] Region: europe-west1
+[ ] ALLOWED_ORIGINS=https://dzarosa.github.io
+[ ] public/config.js contains Cloud Run URL
+[ ] GitHub Pages uses GitHub Actions
+[ ] Android upload tested
+[ ] iPhone upload tested
