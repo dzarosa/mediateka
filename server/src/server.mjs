@@ -20,6 +20,7 @@ const USERS = [
   { username: 'maria', displayName: 'Maria', isAdmin: false },
   { username: 'staszek', displayName: 'Staszek', isAdmin: false },
   { username: 'klaudia', displayName: 'Klaudia', isAdmin: false },
+  { username: 'anna_s', displayName: 'Anna_S', isAdmin: false },
   { username: 'admin', displayName: 'Admin', isAdmin: true },
 ];
 
